@@ -1,0 +1,9 @@
+[package]
+name = "reprompt"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.98"
+eframe = { version = "0.31.1", features = ["default_fonts", "glow", "persistence", "wayland", "x11"], default-features = false }
+egui = "0.31.1"
