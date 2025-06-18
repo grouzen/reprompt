@@ -1,6 +1,9 @@
 use std::time::Instant;
 
-use egui::{CornerRadius, Frame, ScrollArea, Stroke};
+use egui::{
+    CornerRadius, Frame, InnerResponse, Key, KeyboardShortcut, Layout, Modifiers, ScrollArea,
+    Sense, Stroke, UiBuilder,
+};
 use egui_modal::Modal;
 
 pub const TITLE: &str = "Reprompt";
@@ -13,14 +16,24 @@ pub struct RepromptApp {
     new_prompt_title: String,
     #[serde(skip)]
     new_prompt_content: String,
+    main_view: MainView,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Default)]
+enum MainView {
+    #[default]
+    MixedHistory,
+    Prompt(usize),
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
 #[serde(default)]
+#[derive(Default)]
 pub struct Prompt {
     title: String,
     content: String,
     history: Vec<PromptResponse>,
+    new_input: String,
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -38,16 +51,7 @@ impl Default for RepromptApp {
             prompts: Vec::new(),
             new_prompt_title: String::with_capacity(256),
             new_prompt_content: String::with_capacity(1024),
-        }
-    }
-}
-
-impl Default for Prompt {
-    fn default() -> Self {
-        Self {
-            title: Default::default(),
-            content: Default::default(),
-            history: Default::default(),
+            main_view: MainView::MixedHistory,
         }
     }
 }
@@ -89,18 +93,26 @@ impl RepromptApp {
     }
 
     fn show(&mut self, ctx: &egui::Context) {
-        egui::SidePanel::left("prompts")
+        egui::SidePanel::left("left_panel_prompts")
             .resizable(true)
             .show(ctx, |ui| {
-                self.show_prompts(ui);
+                self.show_left_panel_prompts(ui);
+                ui.allocate_space(ui.available_size());
             });
 
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.label("Reprompt!");
+        egui::CentralPanel::default().show(ctx, |ui| match self.main_view {
+            MainView::MixedHistory => {
+                ui.label("Reprompt!");
+            }
+            MainView::Prompt(idx) => {
+                if let Some(prompt) = self.prompts.get_mut(idx) {
+                    prompt.show_main_panel(ui);
+                }
+            }
         });
     }
 
-    fn show_prompts(&mut self, ui: &mut egui::Ui) {
+    fn show_left_panel_prompts(&mut self, ui: &mut egui::Ui) {
         let add_prompt_modal = Modal::new(ui.ctx(), "add_prompt_modal");
 
         ui.horizontal_top(|ui| {
@@ -110,8 +122,8 @@ impl RepromptApp {
         });
 
         ScrollArea::vertical().show(ui, |ui| {
-            for prompt in self.prompts.iter() {
-                prompt.show(ui);
+            for (idx, prompt) in self.prompts.iter().enumerate() {
+                prompt.show_left_panel(ui, || self.main_view = MainView::Prompt(idx));
             }
         });
 
@@ -132,7 +144,7 @@ impl RepromptApp {
             let prompt = Prompt {
                 title: self.new_prompt_title.clone(),
                 content: self.new_prompt_content.clone(),
-                history: Vec::new(),
+                ..Default::default()
             };
 
             self.new_prompt_title.clear();
@@ -148,10 +160,46 @@ impl RepromptApp {
 }
 
 impl Prompt {
-    pub fn show(&self, ui: &mut egui::Ui) {
-        Frame::group(ui.style())
-            .corner_radius(CornerRadius::same(6))
-            .stroke(Stroke::new(2.0, ui.style().visuals.window_stroke.color))
-            .show(ui, |ui| ui.label(self.title.clone()));
+    pub fn show_left_panel(&self, ui: &mut egui::Ui, on_click: impl FnOnce()) {
+        let InnerResponse {
+            response: outer_response,
+            inner: inner_response,
+        } = ui.scope_builder(
+            UiBuilder::new()
+                .id_salt("left_panel_prompt")
+                .sense(Sense::click()),
+            |ui| {
+                Frame::group(ui.style())
+                    .corner_radius(CornerRadius::same(6))
+                    .stroke(Stroke::new(2.0, ui.style().visuals.window_stroke.color))
+                    .show(ui, |ui| ui.label(self.title.clone()))
+                    .inner
+            },
+        );
+
+        inner_response
+            .clone()
+            .on_hover_cursor(egui::CursorIcon::PointingHand);
+
+        if outer_response.clicked() || inner_response.clicked() {
+            on_click();
+        }
+    }
+
+    pub fn show_main_panel(&mut self, ui: &mut egui::Ui) {
+        ui.with_layout(
+            Layout::left_to_right(egui::Align::TOP).with_main_justify(true),
+            |ui| {
+                egui::TextEdit::multiline(&mut self.new_input)
+                    .hint_text(format!("Ask for the following prompt: {}", self.content))
+                    .return_key(KeyboardShortcut::new(Modifiers::SHIFT, Key::Enter))
+                    .show(ui);
+
+                if ui.input(|i| i.key_pressed(Key::Enter) && i.modifiers.is_none()) {
+                    println!("Asked: {}", self.new_input);
+                    self.new_input.clear();
+                }
+            },
+        );
     }
 }
