@@ -1,5 +1,6 @@
 use std::time::Instant;
 
+use egui::{CornerRadius, Frame, ScrollArea, Stroke};
 use egui_modal::Modal;
 
 pub const TITLE: &str = "Reprompt";
@@ -61,14 +62,30 @@ impl Default for PromptResponse {
     }
 }
 
+impl eframe::App for RepromptApp {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        self.show(ctx)
+    }
+
+    fn save(&mut self, storage: &mut dyn eframe::Storage) {
+        eframe::set_value(storage, eframe::APP_KEY, self);
+    }
+}
+
 impl RepromptApp {
-    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+    pub fn from_eframe_context(cc: &eframe::CreationContext<'_>) -> Self {
         eframe::storage_dir(TITLE);
+
+        Self::set_style(&cc.egui_ctx);
 
         match cc.storage {
             Some(storage) => eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default(),
             None => Default::default(),
         }
+    }
+
+    fn set_style(ctx: &egui::Context) {
+        ctx.set_zoom_factor(1.5);
     }
 
     fn show(&mut self, ctx: &egui::Context) {
@@ -92,13 +109,18 @@ impl RepromptApp {
             }
         });
 
+        ScrollArea::vertical().show(ui, |ui| {
+            for prompt in self.prompts.iter() {
+                prompt.show(ui);
+            }
+        });
+
         add_prompt_modal.show(|ui| {
             self.show_add_prompt_modal(ui, &add_prompt_modal);
         });
     }
 
     fn show_add_prompt_modal(&mut self, ui: &mut egui::Ui, modal: &Modal) {
-        modal.title(ui, "Add new prompt");
         modal.frame(ui, |ui| {
             ui.text_edit_singleline(&mut self.new_prompt_title);
             ui.text_edit_multiline(&mut self.new_prompt_content);
@@ -125,12 +147,11 @@ impl RepromptApp {
     }
 }
 
-impl eframe::App for RepromptApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        self.show(ctx)
-    }
-
-    fn save(&mut self, storage: &mut dyn eframe::Storage) {
-        eframe::set_value(storage, eframe::APP_KEY, self);
+impl Prompt {
+    pub fn show(&self, ui: &mut egui::Ui) {
+        Frame::group(ui.style())
+            .corner_radius(CornerRadius::same(6))
+            .stroke(Stroke::new(2.0, ui.style().visuals.window_stroke.color))
+            .show(ui, |ui| ui.label(self.title.clone()));
     }
 }

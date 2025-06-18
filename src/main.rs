@@ -9,6 +9,6 @@ fn main() -> eframe::Result {
     eframe::run_native(
         reprompt::app::TITLE,
         native_options,
-        Box::new(|cc| Ok(Box::new(RepromptApp::new(cc)))),
+        Box::new(|cc| Ok(Box::new(RepromptApp::from_eframe_context(cc)))),
     )
 }
