@@ -7,8 +7,8 @@ fn main() -> eframe::Result {
     };
 
     eframe::run_native(
-        "Reprompt",
+        reprompt::app::TITLE,
         native_options,
-        Box::new(|_| Ok(Box::new(RepromptApp::default()))),
+        Box::new(|cc| Ok(Box::new(RepromptApp::new(cc)))),
     )
 }

@@ -531,6 +531,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "egui-modal"
+version = "0.6.0"
+source = "git+https://github.com/zeozeozeo/egui-modal.git?branch=egui-0.31#f635c3f89e80324ea43721870b9a4e9684b675c0"
+dependencies = [
+ "egui",
+]
+
+[[package]]
 name = "egui-wgpu"
 version = "0.31.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1822,6 +1830,8 @@ dependencies = [
  "anyhow",
  "eframe",
  "egui",
+ "egui-modal",
+ "serde",
 ]
 
 [[package]]
