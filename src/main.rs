@@ -1,6 +1,8 @@
 use reprompt::app::RepromptApp;
 
 fn main() -> eframe::Result {
+    env_logger::init();
+
     let native_options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default(),
         ..Default::default()

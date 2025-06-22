@@ -1,10 +1,9 @@
-use std::time::Instant;
-
-use egui::{
-    CornerRadius, Frame, InnerResponse, Key, KeyboardShortcut, Layout, Modifiers, ScrollArea,
-    Sense, Stroke, UiBuilder,
-};
+use egui::ScrollArea;
 use egui_modal::Modal;
+use ollama_rs::Ollama;
+use tokio::runtime;
+
+use crate::prompt::Prompt;
 
 pub const TITLE: &str = "Reprompt";
 
@@ -17,6 +16,10 @@ pub struct RepromptApp {
     #[serde(skip)]
     new_prompt_content: String,
     main_view: MainView,
+    #[serde(skip)]
+    tokio_runtime: runtime::Runtime,
+    #[serde(skip)]
+    ollama: Ollama,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Default)]
@@ -26,25 +29,6 @@ enum MainView {
     Prompt(usize),
 }
 
-#[derive(serde::Serialize, serde::Deserialize)]
-#[serde(default)]
-#[derive(Default)]
-pub struct Prompt {
-    title: String,
-    content: String,
-    history: Vec<PromptResponse>,
-    new_input: String,
-}
-
-#[derive(serde::Serialize, serde::Deserialize)]
-#[serde(default)]
-pub struct PromptResponse {
-    input: String,
-    output: String,
-    #[serde(skip)]
-    requested_at: Instant,
-}
-
 impl Default for RepromptApp {
     fn default() -> Self {
         Self {
@@ -52,16 +36,11 @@ impl Default for RepromptApp {
             new_prompt_title: String::with_capacity(256),
             new_prompt_content: String::with_capacity(1024),
             main_view: MainView::MixedHistory,
-        }
-    }
-}
-
-impl Default for PromptResponse {
-    fn default() -> Self {
-        Self {
-            input: Default::default(),
-            output: Default::default(),
-            requested_at: Instant::now(),
+            tokio_runtime: tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+                .unwrap(),
+            ollama: Ollama::default(),
         }
     }
 }
@@ -106,7 +85,7 @@ impl RepromptApp {
             }
             MainView::Prompt(idx) => {
                 if let Some(prompt) = self.prompts.get_mut(idx) {
-                    prompt.show_main_panel(ui);
+                    prompt.show_main_panel(ui, &self.tokio_runtime, &self.ollama);
                 }
             }
         });
@@ -141,11 +120,10 @@ impl RepromptApp {
         if modal.button(ui, "Create").clicked() {
             modal.close();
 
-            let prompt = Prompt {
-                title: self.new_prompt_title.clone(),
-                content: self.new_prompt_content.clone(),
-                ..Default::default()
-            };
+            let prompt = Prompt::new(
+                self.new_prompt_title.clone(),
+                self.new_prompt_content.clone(),
+            );
 
             self.new_prompt_title.clear();
             self.new_prompt_content.clear();
@@ -156,50 +134,5 @@ impl RepromptApp {
         if modal.button(ui, "Cancel").clicked() {
             modal.close();
         }
-    }
-}
-
-impl Prompt {
-    pub fn show_left_panel(&self, ui: &mut egui::Ui, on_click: impl FnOnce()) {
-        let InnerResponse {
-            response: outer_response,
-            inner: inner_response,
-        } = ui.scope_builder(
-            UiBuilder::new()
-                .id_salt("left_panel_prompt")
-                .sense(Sense::click()),
-            |ui| {
-                Frame::group(ui.style())
-                    .corner_radius(CornerRadius::same(6))
-                    .stroke(Stroke::new(2.0, ui.style().visuals.window_stroke.color))
-                    .show(ui, |ui| ui.label(self.title.clone()))
-                    .inner
-            },
-        );
-
-        inner_response
-            .clone()
-            .on_hover_cursor(egui::CursorIcon::PointingHand);
-
-        if outer_response.clicked() || inner_response.clicked() {
-            on_click();
-        }
-    }
-
-    pub fn show_main_panel(&mut self, ui: &mut egui::Ui) {
-        ui.with_layout(
-            Layout::left_to_right(egui::Align::TOP).with_main_justify(true),
-            |ui| {
-                egui::TextEdit::multiline(&mut self.new_input)
-                    .hint_text(format!("Ask for the following prompt: {}", self.content))
-                    .return_key(KeyboardShortcut::new(Modifiers::SHIFT, Key::Enter))
-                    .show(ui);
-
-                if ui.input(|i| i.key_pressed(Key::Enter) && i.modifiers.is_none()) {
-                    println!("Asked: {}", self.new_input);
-                    self.new_input.clear();
-                }
-            },
-        );
     }
 }
