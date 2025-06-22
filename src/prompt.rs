@@ -78,10 +78,11 @@ impl PromptResponse {
 }
 
 impl Prompt {
-    pub fn new(title: String, content: String) -> Self {
+    pub fn new(title: String, content: String, id: usize) -> Self {
         Self {
             title,
             content,
+            ask_flower: PromptAskFlower::new(id),
             ..Default::default()
         }
     }
@@ -103,6 +104,7 @@ impl Prompt {
                         Frame::group(ui.style())
                             .corner_radius(CornerRadius::same(6))
                             .stroke(Stroke::new(2.0, ui.style().visuals.window_stroke.color))
+                            // .fill(ui.style().visuals.faint_bg_color)
                             .show(ui, |ui| {
                                 ui.add(egui::Label::wrap(egui::Label::new(&self.title)))
                             })
@@ -126,8 +128,11 @@ impl Prompt {
         ui.with_layout(
             Layout::left_to_right(egui::Align::TOP).with_main_justify(true),
             |ui| {
+                let interactive = !self.is_generating();
+
                 egui::TextEdit::multiline(&mut self.new_input)
                     .hint_text(format!("Ask for the following prompt: {}", self.content))
+                    .interactive(interactive)
                     .return_key(KeyboardShortcut::new(Modifiers::SHIFT, Key::Enter))
                     .show(ui);
             },

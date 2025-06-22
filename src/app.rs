@@ -130,17 +130,19 @@ impl RepromptApp {
         });
 
         if modal.button(ui, "Create").clicked() {
-            modal.close();
-
+            let id = self.prompts.len();
             let prompt = Prompt::new(
                 self.new_prompt_title.clone(),
                 self.new_prompt_content.clone(),
+                id,
             );
 
             self.new_prompt_title.clear();
             self.new_prompt_content.clear();
 
             self.prompts.push(prompt);
+
+            modal.close();
         };
 
         if modal.button(ui, "Cancel").clicked() {
