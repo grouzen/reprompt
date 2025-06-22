@@ -105,7 +105,9 @@ impl RepromptApp {
     fn show_left_panel_prompts(&mut self, ui: &mut egui::Ui) {
         ScrollArea::vertical().show(ui, |ui| {
             for (idx, prompt) in self.prompts.iter().enumerate() {
-                prompt.show_left_panel(ui, || self.main_view = MainView::Prompt(idx));
+                let selected = matches!(self.main_view, MainView::Prompt(idx0) if idx0 == idx);
+
+                prompt.show_left_panel(ui, selected, || self.main_view = MainView::Prompt(idx));
             }
         });
     }

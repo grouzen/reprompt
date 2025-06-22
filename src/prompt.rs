@@ -87,7 +87,7 @@ impl Prompt {
         }
     }
 
-    pub fn show_left_panel(&self, ui: &mut egui::Ui, on_click: impl FnOnce()) {
+    pub fn show_left_panel(&self, ui: &mut egui::Ui, selected: bool, on_click: impl FnOnce()) {
         let InnerResponse {
             response: outer_response,
             inner: inner_response,
@@ -101,10 +101,16 @@ impl Prompt {
                         .with_main_justify(true)
                         .with_main_align(egui::Align::LEFT),
                     |ui| {
+                        let fill_style = if selected {
+                            ui.style().visuals.faint_bg_color
+                        } else {
+                            ui.style().visuals.window_fill
+                        };
+
                         Frame::group(ui.style())
                             .corner_radius(CornerRadius::same(6))
                             .stroke(Stroke::new(2.0, ui.style().visuals.window_stroke.color))
-                            // .fill(ui.style().visuals.faint_bg_color)
+                            .fill(fill_style)
                             .show(ui, |ui| {
                                 ui.add(egui::Label::wrap(egui::Label::new(&self.title)))
                             })
