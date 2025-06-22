@@ -18,7 +18,6 @@ pub struct Prompt {
     content: String,
     history: VecDeque<PromptResponse>,
     new_input: String,
-    new_output: String,
     #[serde(skip)]
     ask_flower: PromptAskFlower,
     #[serde(skip)]
@@ -50,7 +49,6 @@ impl Default for Prompt {
             content: Default::default(),
             history: Default::default(),
             new_input: Default::default(),
-            new_output: Default::default(),
             ask_flower: PromptAskFlower::new(1),
             state: Default::default(),
         }
@@ -176,12 +174,16 @@ impl Prompt {
         });
     }
 
-    fn is_generating(&self) -> bool {
+    pub fn is_generating(&self) -> bool {
         matches!(self.state, PromptState::Generating)
     }
 
     fn generate_response(&mut self, input: String, rt: &runtime::Runtime, ollama: &Ollama) {
         self.state = PromptState::Generating;
+
+        let response = PromptResponse::new(self.new_input.clone(), String::new());
+        self.history.push_front(response);
+
         self.ask_ollama(input, rt, ollama.clone());
     }
 
@@ -225,28 +227,24 @@ impl Prompt {
     fn poll_ask_flower(&mut self) {
         self.ask_flower
             .extract(|output| {
-                self.new_output = output;
+                self.history.get_mut(0).unwrap().output = output;
             })
             .finalize(|result| {
                 match result {
                     Ok(output) => {
-                        self.new_output = output;
+                        self.history.get_mut(0).unwrap().output = output;
                     }
                     Err(Compact::Suppose(e)) => {
-                        self.new_output = e;
+                        self.history.get_mut(0).unwrap().output = e;
                     }
                     Err(Compact::Panicked(e)) => {
                         let message = format!("Tokio task panicked: {}", e);
-                        self.new_output = message;
+                        self.history.get_mut(0).unwrap().output = message;
                     }
                 }
 
-                let response = PromptResponse::new(self.new_input.clone(), self.new_output.clone());
-                self.history.push_front(response);
-
                 self.state = PromptState::Idle;
                 self.new_input.clear();
-                self.new_output.clear();
             });
     }
 }

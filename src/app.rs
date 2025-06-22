@@ -120,6 +120,10 @@ impl RepromptApp {
             MainView::Prompt(idx) => {
                 if let Some(prompt) = self.prompts.get_mut(idx) {
                     prompt.show_main_panel(ui, &self.tokio_runtime, &self.ollama);
+
+                    if prompt.is_generating() {
+                        ctx.request_repaint();
+                    }
                 }
             }
         });
