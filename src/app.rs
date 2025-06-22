@@ -15,7 +15,7 @@ pub struct RepromptApp {
     new_prompt_title: String,
     #[serde(skip)]
     new_prompt_content: String,
-    main_view: MainView,
+    view_state: ViewState,
     #[serde(skip)]
     tokio_runtime: runtime::Runtime,
     #[serde(skip)]
@@ -23,7 +23,20 @@ pub struct RepromptApp {
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Default)]
-enum MainView {
+struct ViewState {
+    modal: ViewModalState,
+    main_panel: ViewMainPanelState,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Default)]
+enum ViewModalState {
+    #[default]
+    None,
+    AddPrompt,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Default)]
+enum ViewMainPanelState {
     #[default]
     MixedHistory,
     Prompt(usize),
@@ -35,7 +48,7 @@ impl Default for RepromptApp {
             prompts: Vec::new(),
             new_prompt_title: String::with_capacity(256),
             new_prompt_content: String::with_capacity(1024),
-            main_view: MainView::MixedHistory,
+            view_state: Default::default(),
             tokio_runtime: tokio::runtime::Builder::new_multi_thread()
                 .enable_all()
                 .build()
@@ -92,10 +105,15 @@ impl RepromptApp {
                 ui.horizontal_top(|ui| {
                     if ui.button("➕").clicked() {
                         add_prompt_modal.open();
+                        self.view_state.modal = ViewModalState::AddPrompt;
                     }
                 });
 
                 self.show_left_panel_prompts(ui);
+
+                if add_prompt_modal.was_outside_clicked() {
+                    self.view_state.modal = ViewModalState::None;
+                }
 
                 add_prompt_modal.show(|ui| {
                     self.show_add_prompt_modal(ui, &add_prompt_modal, add_prompt_modal_width);
@@ -106,21 +124,25 @@ impl RepromptApp {
     fn show_left_panel_prompts(&mut self, ui: &mut egui::Ui) {
         ScrollArea::vertical().show(ui, |ui| {
             for (idx, prompt) in self.prompts.iter().enumerate() {
-                let selected = matches!(self.main_view, MainView::Prompt(idx0) if idx0 == idx);
+                let selected = self.is_prompt_selected(idx);
 
-                prompt.show_left_panel(ui, selected, || self.main_view = MainView::Prompt(idx));
+                prompt.show_left_panel(ui, selected, || {
+                    self.view_state.main_panel = ViewMainPanelState::Prompt(idx)
+                });
             }
         });
     }
 
     fn show_main_panel(&mut self, ctx: &egui::Context) {
-        egui::CentralPanel::default().show(ctx, |ui| match self.main_view {
-            MainView::MixedHistory => {
+        let covered = self.is_covered();
+
+        egui::CentralPanel::default().show(ctx, |ui| match self.view_state.main_panel {
+            ViewMainPanelState::MixedHistory => {
                 ui.label("Reprompt!");
             }
-            MainView::Prompt(idx) => {
+            ViewMainPanelState::Prompt(idx) => {
                 if let Some(prompt) = self.prompts.get_mut(idx) {
-                    prompt.show_main_panel(ui, &self.tokio_runtime, &self.ollama);
+                    prompt.show_main_panel(ui, covered, &self.tokio_runtime, &self.ollama);
 
                     if prompt.is_generating() {
                         ctx.request_repaint();
@@ -161,6 +183,7 @@ impl RepromptApp {
             Layout::right_to_left(egui::Align::TOP).with_main_align(egui::Align::RIGHT),
             |ui| {
                 if modal.caution_button(ui, "Cancel").clicked() {
+                    self.view_state.modal = ViewModalState::None;
                     self.new_prompt_title.clear();
                     self.new_prompt_content.clear();
                 };
@@ -179,8 +202,17 @@ impl RepromptApp {
                     self.prompts.push(prompt);
 
                     modal.close();
+                    self.view_state.modal = ViewModalState::None;
                 };
             },
         );
+    }
+
+    fn is_covered(&self) -> bool {
+        !matches!(self.view_state.modal, ViewModalState::None)
+    }
+
+    fn is_prompt_selected(&self, idx: usize) -> bool {
+        matches!(self.view_state.main_panel, ViewMainPanelState::Prompt(idx0) if idx0 == idx)
     }
 }

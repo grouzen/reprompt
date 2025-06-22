@@ -128,7 +128,13 @@ impl Prompt {
         }
     }
 
-    pub fn show_main_panel(&mut self, ui: &mut egui::Ui, rt: &runtime::Runtime, ollama: &Ollama) {
+    pub fn show_main_panel(
+        &mut self,
+        ui: &mut egui::Ui,
+        covered: bool,
+        rt: &runtime::Runtime,
+        ollama: &Ollama,
+    ) {
         ui.with_layout(
             Layout::left_to_right(egui::Align::TOP).with_main_justify(true),
             |ui| {
@@ -142,7 +148,9 @@ impl Prompt {
             },
         );
 
-        if !self.is_generating() && ui.input(|i| i.key_pressed(Key::Enter) && i.modifiers.is_none())
+        if !self.is_generating()
+            && !covered
+            && ui.input(|i| i.key_pressed(Key::Enter) && i.modifiers.is_none())
         {
             self.generate_response(self.new_input.clone(), rt, ollama);
         }
