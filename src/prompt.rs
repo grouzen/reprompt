@@ -1,11 +1,10 @@
-use std::time::Instant;
+use std::{collections::VecDeque, time::Instant};
 
 use egui::{
-    CornerRadius, Frame, InnerResponse, Key, KeyboardShortcut, Label, Layout, Modifiers, Sense,
-    Stroke, UiBuilder,
+    CornerRadius, Frame, InnerResponse, Key, KeyboardShortcut, Label, Layout, Modifiers,
+    ScrollArea, Sense, Stroke, UiBuilder,
 };
 use flowync::{CompactFlower, error::Compact};
-use log::info;
 use ollama_rs::{Ollama, generation::completion::request::GenerationRequest};
 use tokio::runtime;
 use tokio_stream::StreamExt;
@@ -17,7 +16,7 @@ const DEFAULT_OLLAMA_MODEL: &str = "qwen2.5:7b";
 pub struct Prompt {
     title: String,
     content: String,
-    history: Vec<PromptResponse>,
+    history: VecDeque<PromptResponse>,
     new_input: String,
     new_output: String,
     #[serde(skip)]
@@ -133,9 +132,27 @@ impl Prompt {
             self.poll_ask_flower();
         }
 
-        for response in self.history.iter() {
-            ui.add(egui::Label::wrap(Label::new(&response.output)));
-        }
+        self.show_prompt_history(ui);
+    }
+
+    fn show_prompt_history(&self, ui: &mut egui::Ui) {
+        ScrollArea::vertical().show(ui, |ui| {
+            for response in self.history.iter() {
+                ui.with_layout(
+                    Layout::left_to_right(egui::Align::TOP)
+                        .with_main_justify(true)
+                        .with_main_align(egui::Align::LEFT),
+                    |ui| {
+                        Frame::group(ui.style())
+                            .corner_radius(CornerRadius::same(6))
+                            .stroke(Stroke::new(1.0, ui.style().visuals.window_stroke.color))
+                            .show(ui, |ui| {
+                                ui.add(egui::Label::wrap(Label::new(&response.output)));
+                            });
+                    },
+                );
+            }
+        });
     }
 
     fn is_generating(&self) -> bool {
@@ -186,27 +203,25 @@ impl Prompt {
 
     fn poll_ask_flower(&mut self) {
         self.ask_flower
-            .extract(|next| {
-                self.new_output += &next;
+            .extract(|output| {
+                self.new_output = output;
             })
             .finalize(|result| {
                 match result {
-                    Ok(next) => {
-                        self.new_output += &next;
+                    Ok(output) => {
+                        self.new_output = output;
                     }
                     Err(Compact::Suppose(e)) => {
-                        self.new_output += &e;
+                        self.new_output = e;
                     }
                     Err(Compact::Panicked(e)) => {
                         let message = format!("Tokio task panicked: {}", e);
-                        self.new_output += &message;
+                        self.new_output = message;
                     }
                 }
 
                 let response = PromptResponse::new(self.new_input.clone(), self.new_output.clone());
-                self.history.push(response.clone());
-
-                info!("Added response {:?}", response);
+                self.history.push_front(response);
 
                 self.state = PromptState::Idle;
                 self.new_input.clear();
