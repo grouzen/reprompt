@@ -95,11 +95,21 @@ impl Prompt {
                 .id_salt("left_panel_prompt")
                 .sense(Sense::click()),
             |ui| {
-                Frame::group(ui.style())
-                    .corner_radius(CornerRadius::same(6))
-                    .stroke(Stroke::new(2.0, ui.style().visuals.window_stroke.color))
-                    .show(ui, |ui| ui.label(self.title.clone()))
-                    .inner
+                ui.with_layout(
+                    Layout::left_to_right(egui::Align::TOP)
+                        .with_main_justify(true)
+                        .with_main_align(egui::Align::LEFT),
+                    |ui| {
+                        Frame::group(ui.style())
+                            .corner_radius(CornerRadius::same(6))
+                            .stroke(Stroke::new(2.0, ui.style().visuals.window_stroke.color))
+                            .show(ui, |ui| {
+                                ui.add(egui::Label::wrap(egui::Label::new(&self.title)))
+                            })
+                            .inner
+                    },
+                )
+                .inner
             },
         );
 

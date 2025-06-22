@@ -72,13 +72,45 @@ impl RepromptApp {
     }
 
     fn show(&mut self, ctx: &egui::Context) {
+        self.show_left_panel(ctx);
+        self.show_main_panel(ctx);
+    }
+
+    fn show_left_panel(&mut self, ctx: &egui::Context) {
+        let width = ctx.available_rect().width();
+        let max_width = width * 0.3;
+        let min_width = width * 0.2;
+
         egui::SidePanel::left("left_panel_prompts")
             .resizable(true)
+            .max_width(max_width)
+            .min_width(min_width)
             .show(ctx, |ui| {
-                self.show_left_panel_prompts(ui);
-                ui.allocate_space(ui.available_size());
-            });
+                let add_prompt_modal = Modal::new(ui.ctx(), "add_prompt_modal");
 
+                ui.horizontal_top(|ui| {
+                    if ui.button("➕").clicked() {
+                        add_prompt_modal.open();
+                    }
+                });
+
+                self.show_left_panel_prompts(ui);
+
+                add_prompt_modal.show(|ui| {
+                    self.show_add_prompt_modal(ui, &add_prompt_modal);
+                });
+            });
+    }
+
+    fn show_left_panel_prompts(&mut self, ui: &mut egui::Ui) {
+        ScrollArea::vertical().show(ui, |ui| {
+            for (idx, prompt) in self.prompts.iter().enumerate() {
+                prompt.show_left_panel(ui, || self.main_view = MainView::Prompt(idx));
+            }
+        });
+    }
+
+    fn show_main_panel(&mut self, ctx: &egui::Context) {
         egui::CentralPanel::default().show(ctx, |ui| match self.main_view {
             MainView::MixedHistory => {
                 ui.label("Reprompt!");
@@ -88,26 +120,6 @@ impl RepromptApp {
                     prompt.show_main_panel(ui, &self.tokio_runtime, &self.ollama);
                 }
             }
-        });
-    }
-
-    fn show_left_panel_prompts(&mut self, ui: &mut egui::Ui) {
-        let add_prompt_modal = Modal::new(ui.ctx(), "add_prompt_modal");
-
-        ui.horizontal_top(|ui| {
-            if ui.button("➕").clicked() {
-                add_prompt_modal.open();
-            }
-        });
-
-        ScrollArea::vertical().show(ui, |ui| {
-            for (idx, prompt) in self.prompts.iter().enumerate() {
-                prompt.show_left_panel(ui, || self.main_view = MainView::Prompt(idx));
-            }
-        });
-
-        add_prompt_modal.show(|ui| {
-            self.show_add_prompt_modal(ui, &add_prompt_modal);
         });
     }
 
