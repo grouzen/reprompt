@@ -23,6 +23,7 @@ pub struct RepromptApp {
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Default)]
+#[serde(default)]
 struct ViewState {
     modal: ViewModalState,
     main_panel: ViewMainPanelState,
@@ -126,6 +127,7 @@ impl RepromptApp {
             for (idx, prompt) in self.prompts.iter().enumerate() {
                 let selected = self.is_prompt_selected(idx);
 
+                ui.add_space(3.0);
                 prompt.show_left_panel(ui, selected, || {
                     self.view_state.main_panel = ViewMainPanelState::Prompt(idx)
                 });

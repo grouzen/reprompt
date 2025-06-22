@@ -165,6 +165,7 @@ impl Prompt {
     fn show_prompt_history(&self, ui: &mut egui::Ui) {
         ScrollArea::vertical().show(ui, |ui| {
             for response in self.history.iter() {
+                ui.add_space(3.0);
                 ui.with_layout(
                     Layout::left_to_right(egui::Align::TOP)
                         .with_main_justify(true)
