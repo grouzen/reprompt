@@ -1,5 +1,5 @@
-use egui::ScrollArea;
-use egui_modal::Modal;
+use egui::{Layout, ScrollArea};
+use egui_modal::{Modal, ModalStyle};
 use ollama_rs::Ollama;
 use tokio::runtime;
 
@@ -77,16 +77,17 @@ impl RepromptApp {
     }
 
     fn show_left_panel(&mut self, ctx: &egui::Context) {
-        let width = ctx.available_rect().width();
-        let max_width = width * 0.3;
-        let min_width = width * 0.2;
+        let available_width = ctx.available_rect().width();
+        let max_width = available_width * 0.3;
+        let min_width = available_width * 0.2;
 
         egui::SidePanel::left("left_panel_prompts")
             .resizable(true)
             .max_width(max_width)
             .min_width(min_width)
             .show(ctx, |ui| {
-                let add_prompt_modal = Modal::new(ui.ctx(), "add_prompt_modal");
+                let add_prompt_modal_width = available_width * 0.5;
+                let add_prompt_modal = self.create_add_prompt_modal(ui, add_prompt_modal_width);
 
                 ui.horizontal_top(|ui| {
                     if ui.button("➕").clicked() {
@@ -97,7 +98,7 @@ impl RepromptApp {
                 self.show_left_panel_prompts(ui);
 
                 add_prompt_modal.show(|ui| {
-                    self.show_add_prompt_modal(ui, &add_prompt_modal);
+                    self.show_add_prompt_modal(ui, &add_prompt_modal, add_prompt_modal_width);
                 });
             });
     }
@@ -129,30 +130,57 @@ impl RepromptApp {
         });
     }
 
-    fn show_add_prompt_modal(&mut self, ui: &mut egui::Ui, modal: &Modal) {
-        modal.frame(ui, |ui| {
-            ui.text_edit_singleline(&mut self.new_prompt_title);
-            ui.text_edit_multiline(&mut self.new_prompt_content);
-        });
-
-        if modal.button(ui, "Create").clicked() {
-            let id = self.prompts.len();
-            let prompt = Prompt::new(
-                self.new_prompt_title.clone(),
-                self.new_prompt_content.clone(),
-                id,
-            );
-
-            self.new_prompt_title.clear();
-            self.new_prompt_content.clear();
-
-            self.prompts.push(prompt);
-
-            modal.close();
+    fn create_add_prompt_modal(&mut self, ui: &mut egui::Ui, width: f32) -> Modal {
+        let style = ModalStyle {
+            default_width: Some(width),
+            ..Default::default()
         };
 
-        if modal.button(ui, "Cancel").clicked() {
-            modal.close();
-        }
+        Modal::new(ui.ctx(), "add_prompt_modal")
+            .with_close_on_outside_click(true)
+            .with_style(&style)
+    }
+
+    fn show_add_prompt_modal(&mut self, ui: &mut egui::Ui, modal: &Modal, width: f32) {
+        modal.frame(ui, |ui| {
+            egui::TextEdit::singleline(&mut self.new_prompt_title)
+                .hint_text("Write the title of your prompt here")
+                .desired_width(width)
+                .show(ui);
+
+            egui::TextEdit::multiline(&mut self.new_prompt_content)
+                .desired_rows(10)
+                .hint_text(
+                    "Write the content of your prompt here. It will be prepended to all requests.",
+                )
+                .desired_width(width)
+                .show(ui);
+        });
+
+        ui.with_layout(
+            Layout::right_to_left(egui::Align::TOP).with_main_align(egui::Align::RIGHT),
+            |ui| {
+                if modal.caution_button(ui, "Cancel").clicked() {
+                    self.new_prompt_title.clear();
+                    self.new_prompt_content.clear();
+                };
+
+                if modal.button(ui, "Create").clicked() {
+                    let id = self.prompts.len();
+                    let prompt = Prompt::new(
+                        self.new_prompt_title.clone(),
+                        self.new_prompt_content.clone(),
+                        id,
+                    );
+
+                    self.new_prompt_title.clear();
+                    self.new_prompt_content.clear();
+
+                    self.prompts.push(prompt);
+
+                    modal.close();
+                };
+            },
+        );
     }
 }
