@@ -150,6 +150,7 @@ impl Prompt {
 
         if !self.is_generating()
             && !covered
+            && !self.new_input.is_empty()
             && ui.input(|i| i.key_pressed(Key::Enter) && i.modifiers.is_none())
         {
             self.generate_response(self.new_input.clone(), rt, ollama);

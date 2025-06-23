@@ -1,4 +1,4 @@
-use egui::{Layout, ScrollArea};
+use egui::{Button, Color32, Layout, ScrollArea, WidgetText};
 use egui_modal::{Modal, ModalStyle};
 use ollama_rs::Ollama;
 use tokio::runtime;
@@ -184,27 +184,38 @@ impl RepromptApp {
         ui.with_layout(
             Layout::right_to_left(egui::Align::TOP).with_main_align(egui::Align::RIGHT),
             |ui| {
-                if modal.caution_button(ui, "Cancel").clicked() {
-                    self.view_state.modal = ViewModalState::None;
+                // TODO: the buttons in egui_modal do not allow overriding the default behavior when they close the modal upon clicking
+                let cancel_button =
+                    Button::new(WidgetText::from("Cancel").color(Color32::from_rgb(242, 148, 148)))
+                        .fill(Color32::from_rgb(87, 38, 34));
+                let create_button =
+                    Button::new(WidgetText::from("Create").color(Color32::from_rgb(141, 182, 242)))
+                        .fill(Color32::from_rgb(33, 54, 84));
+
+                if ui.add(cancel_button).clicked() {
                     self.new_prompt_title.clear();
                     self.new_prompt_content.clear();
-                };
-
-                if modal.button(ui, "Create").clicked() {
-                    let id = self.prompts.len();
-                    let prompt = Prompt::new(
-                        self.new_prompt_title.clone(),
-                        self.new_prompt_content.clone(),
-                        id,
-                    );
-
-                    self.new_prompt_title.clear();
-                    self.new_prompt_content.clear();
-
-                    self.prompts.push(prompt);
 
                     modal.close();
                     self.view_state.modal = ViewModalState::None;
+                }
+
+                if ui.add(create_button).clicked() {
+                    if !self.new_prompt_title.is_empty() && !self.new_prompt_content.is_empty() {
+                        let id = self.prompts.len();
+                        let prompt = Prompt::new(
+                            self.new_prompt_title.clone(),
+                            self.new_prompt_content.clone(),
+                            id,
+                        );
+                        self.prompts.push(prompt);
+
+                        self.new_prompt_title.clear();
+                        self.new_prompt_content.clear();
+
+                        modal.close();
+                        self.view_state.modal = ViewModalState::None;
+                    }
                 };
             },
         );
