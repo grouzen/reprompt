@@ -3,7 +3,7 @@ use egui_modal::{Modal, ModalStyle};
 use ollama_rs::Ollama;
 use tokio::runtime;
 
-use crate::prompt::Prompt;
+use crate::{ollama::OllamaClient, prompt::Prompt};
 
 pub const TITLE: &str = "Reprompt";
 
@@ -19,7 +19,7 @@ pub struct RepromptApp {
     #[serde(skip)]
     tokio_runtime: runtime::Runtime,
     #[serde(skip)]
-    ollama: Ollama,
+    ollama_client: OllamaClient,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Default)]
@@ -54,7 +54,7 @@ impl Default for RepromptApp {
                 .enable_all()
                 .build()
                 .unwrap(),
-            ollama: Ollama::default(),
+            ollama_client: OllamaClient::new(Ollama::default()),
         }
     }
 }
@@ -144,7 +144,7 @@ impl RepromptApp {
             }
             ViewMainPanelState::Prompt(idx) => {
                 if let Some(prompt) = self.prompts.get_mut(idx) {
-                    prompt.show_main_panel(ui, covered, &self.tokio_runtime, &self.ollama);
+                    prompt.show_main_panel(ui, covered, &self.tokio_runtime, &self.ollama_client);
 
                     if prompt.is_generating() {
                         ctx.request_repaint();
@@ -200,22 +200,23 @@ impl RepromptApp {
                     self.view_state.modal = ViewModalState::None;
                 }
 
-                if ui.add(create_button).clicked() {
-                    if !self.new_prompt_title.is_empty() && !self.new_prompt_content.is_empty() {
-                        let id = self.prompts.len();
-                        let prompt = Prompt::new(
-                            self.new_prompt_title.clone(),
-                            self.new_prompt_content.clone(),
-                            id,
-                        );
-                        self.prompts.push(prompt);
+                if ui.add(create_button).clicked()
+                    && !self.new_prompt_title.is_empty()
+                    && !self.new_prompt_content.is_empty()
+                {
+                    let id = self.prompts.len();
+                    let prompt = Prompt::new(
+                        self.new_prompt_title.clone(),
+                        self.new_prompt_content.clone(),
+                        id,
+                    );
+                    self.prompts.push(prompt);
 
-                        self.new_prompt_title.clear();
-                        self.new_prompt_content.clear();
+                    self.new_prompt_title.clear();
+                    self.new_prompt_content.clear();
 
-                        modal.close();
-                        self.view_state.modal = ViewModalState::None;
-                    }
+                    modal.close();
+                    self.view_state.modal = ViewModalState::None;
                 };
             },
         );
