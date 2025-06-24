@@ -118,11 +118,13 @@ impl Prompt {
             },
         );
 
-        inner_response
+        let response = outer_response.union(inner_response);
+
+        response
             .clone()
             .on_hover_cursor(egui::CursorIcon::PointingHand);
 
-        if outer_response.clicked() || inner_response.clicked() {
+        if response.clicked() {
             on_click();
         }
     }
