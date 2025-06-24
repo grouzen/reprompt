@@ -4,6 +4,7 @@ use egui::{
     CornerRadius, Frame, InnerResponse, Key, KeyboardShortcut, Label, Layout, Modifiers,
     ScrollArea, Sense, Stroke, UiBuilder,
 };
+use egui_commonmark::{CommonMarkCache, CommonMarkViewer};
 use flowync::{CompactFlower, error::Compact};
 use tokio::runtime;
 
@@ -132,6 +133,7 @@ impl Prompt {
         covered: bool,
         rt: &runtime::Runtime,
         ollama_client: &OllamaClient,
+        commonmark_cache: &mut CommonMarkCache,
     ) {
         ui.with_layout(
             Layout::left_to_right(egui::Align::TOP).with_main_justify(true),
@@ -160,10 +162,10 @@ impl Prompt {
             self.poll_ask_flower();
         }
 
-        self.show_prompt_history(ui);
+        self.show_prompt_history(ui, commonmark_cache);
     }
 
-    fn show_prompt_history(&self, ui: &mut egui::Ui) {
+    fn show_prompt_history(&self, ui: &mut egui::Ui, commonmark_cache: &mut CommonMarkCache) {
         ScrollArea::vertical().show(ui, |ui| {
             for response in self.history.iter() {
                 ui.add_space(3.0);
@@ -193,7 +195,11 @@ impl Prompt {
                                                 )));
                                             });
 
-                                        ui.add(egui::Label::wrap(Label::new(&response.output)));
+                                        CommonMarkViewer::new().show(
+                                            ui,
+                                            commonmark_cache,
+                                            &response.output,
+                                        );
                                     },
                                 );
                             });

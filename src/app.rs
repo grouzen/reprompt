@@ -1,4 +1,5 @@
 use egui::{Button, Color32, Layout, ScrollArea, WidgetText};
+use egui_commonmark::CommonMarkCache;
 use egui_modal::{Modal, ModalStyle};
 use ollama_rs::Ollama;
 use tokio::runtime;
@@ -20,6 +21,8 @@ pub struct RepromptApp {
     tokio_runtime: runtime::Runtime,
     #[serde(skip)]
     ollama_client: OllamaClient,
+    #[serde(skip)]
+    commonmark_cache: CommonMarkCache,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Default)]
@@ -55,6 +58,7 @@ impl Default for RepromptApp {
                 .build()
                 .unwrap(),
             ollama_client: OllamaClient::new(Ollama::default()),
+            commonmark_cache: CommonMarkCache::default(),
         }
     }
 }
@@ -144,7 +148,13 @@ impl RepromptApp {
             }
             ViewMainPanelState::Prompt(idx) => {
                 if let Some(prompt) = self.prompts.get_mut(idx) {
-                    prompt.show_main_panel(ui, covered, &self.tokio_runtime, &self.ollama_client);
+                    prompt.show_main_panel(
+                        ui,
+                        covered,
+                        &self.tokio_runtime,
+                        &self.ollama_client,
+                        &mut self.commonmark_cache,
+                    );
 
                     if prompt.is_generating() {
                         ctx.request_repaint();
