@@ -82,7 +82,7 @@ impl RepromptApp {
     }
 
     fn set_style(ctx: &egui::Context) {
-        ctx.set_zoom_factor(1.5);
+        ctx.set_zoom_factor(1.2);
     }
 
     fn show(&mut self, ctx: &egui::Context) {
