@@ -146,6 +146,8 @@ impl Prompt {
             },
         );
 
+        ui.separator();
+
         if !self.is_generating()
             && !covered
             && !self.new_input.is_empty()
