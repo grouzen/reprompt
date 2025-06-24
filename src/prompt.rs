@@ -176,7 +176,26 @@ impl Prompt {
                             .corner_radius(CornerRadius::same(6))
                             .stroke(Stroke::new(1.0, ui.style().visuals.window_stroke.color))
                             .show(ui, |ui| {
-                                ui.add(egui::Label::wrap(Label::new(&response.output)));
+                                ui.with_layout(
+                                    Layout::top_down(egui::Align::TOP)
+                                        .with_cross_justify(true)
+                                        .with_cross_align(egui::Align::LEFT),
+                                    |ui| {
+                                        Frame::group(ui.style())
+                                            .stroke(Stroke::new(
+                                                1.0,
+                                                ui.style().visuals.window_stroke.color,
+                                            ))
+                                            .fill(ui.style().visuals.faint_bg_color)
+                                            .show(ui, |ui| {
+                                                ui.add(egui::Label::wrap(Label::new(
+                                                    &response.input,
+                                                )));
+                                            });
+
+                                        ui.add(egui::Label::wrap(Label::new(&response.output)));
+                                    },
+                                );
                             });
                     },
                 );
