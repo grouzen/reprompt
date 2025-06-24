@@ -153,8 +153,49 @@ impl RepromptApp {
             }
 
             remove_prompt_modal.show(|ui| {
-                self.show_remove_prompt_modal(ui, &remove_prompt_modal);
+                self.show_remove_prompt_modal(
+                    ui,
+                    &remove_prompt_modal,
+                    |s| s.view_state.modal = ViewModalState::None,
+                    |s, idx| {
+                        s.view_state.modal = ViewModalState::None;
+                        s.prompts.remove(idx);
+                    },
+                );
             });
+        });
+    }
+
+    fn show_remove_prompt_modal<F, G>(
+        &mut self,
+        ui: &mut egui::Ui,
+        modal: &Modal,
+        on_cancel: F,
+        on_remove: G,
+    ) where
+        F: Fn(&mut Self),
+        G: FnOnce(&mut Self, usize),
+    {
+        modal.title(ui, "Remove Prompt");
+        modal.body_and_icon(
+            ui,
+            "Do you really want to remove this prompt?",
+            Icon::Warning,
+        );
+
+        modal.buttons(ui, |ui| {
+            if modal.button(ui, "Cancel").clicked() {
+                on_cancel(self);
+            }
+
+            if modal.caution_button(ui, "Remove").clicked() {
+                match self.view_state.modal {
+                    ViewModalState::RemovePrompt(idx) => {
+                        on_remove(self, idx);
+                    }
+                    _ => on_cancel(self),
+                }
+            }
         });
     }
 
@@ -178,31 +219,6 @@ impl RepromptApp {
                     if prompt.is_generating() {
                         ctx.request_repaint();
                     }
-                }
-            }
-        });
-    }
-
-    fn show_remove_prompt_modal(&mut self, ui: &mut egui::Ui, modal: &Modal) {
-        modal.title(ui, "Remove Prompt");
-        modal.body_and_icon(
-            ui,
-            "Do you really want to remove this prompt?",
-            Icon::Warning,
-        );
-
-        modal.buttons(ui, |ui| {
-            if modal.button(ui, "Cancel").clicked() {
-                self.view_state.modal = ViewModalState::None;
-            }
-
-            if modal.caution_button(ui, "Remove").clicked() {
-                match self.view_state.modal {
-                    ViewModalState::RemovePrompt(idx) => {
-                        self.view_state.modal = ViewModalState::None;
-                        self.prompts.remove(idx);
-                    }
-                    _ => self.view_state.modal = ViewModalState::None,
                 }
             }
         });

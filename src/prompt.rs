@@ -84,13 +84,16 @@ impl Prompt {
         }
     }
 
-    pub fn show_left_panel(
+    pub fn show_left_panel<F, G>(
         &self,
         ui: &mut egui::Ui,
         selected: bool,
-        on_click: impl FnOnce(),
-        on_remove: impl FnOnce(),
-    ) {
+        on_click: F,
+        on_remove: G,
+    ) where
+        F: FnOnce(),
+        G: FnOnce(),
+    {
         let response = ui.scope_builder(
             UiBuilder::new()
                 .id_salt("left_panel_prompt")
