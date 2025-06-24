@@ -1,6 +1,6 @@
 use egui::{Button, Color32, Layout, ScrollArea, WidgetText};
 use egui_commonmark::CommonMarkCache;
-use egui_modal::{Modal, ModalStyle};
+use egui_modal::{Icon, Modal, ModalStyle};
 use ollama_rs::Ollama;
 use tokio::runtime;
 
@@ -37,6 +37,7 @@ enum ViewModalState {
     #[default]
     None,
     AddPrompt,
+    RemovePrompt(usize),
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Default)]
@@ -128,14 +129,32 @@ impl RepromptApp {
 
     fn show_left_panel_prompts(&mut self, ui: &mut egui::Ui) {
         ScrollArea::vertical().show(ui, |ui| {
+            let remove_prompt_modal =
+                Modal::new(ui.ctx(), "remove_prompt_modal").with_close_on_outside_click(true);
+
             for (idx, prompt) in self.prompts.iter().enumerate() {
                 let selected = self.is_prompt_selected(idx);
 
                 ui.add_space(3.0);
-                prompt.show_left_panel(ui, selected, || {
-                    self.view_state.main_panel = ViewMainPanelState::Prompt(idx)
-                });
+
+                prompt.show_left_panel(
+                    ui,
+                    selected,
+                    || self.view_state.main_panel = ViewMainPanelState::Prompt(idx),
+                    || {
+                        remove_prompt_modal.open();
+                        self.view_state.modal = ViewModalState::RemovePrompt(idx);
+                    },
+                );
+
+                if remove_prompt_modal.was_outside_clicked() {
+                    self.view_state.modal = ViewModalState::None;
+                }
             }
+
+            remove_prompt_modal.show(|ui| {
+                self.show_remove_prompt_modal(ui, &remove_prompt_modal);
+            });
         });
     }
 
@@ -159,6 +178,31 @@ impl RepromptApp {
                     if prompt.is_generating() {
                         ctx.request_repaint();
                     }
+                }
+            }
+        });
+    }
+
+    fn show_remove_prompt_modal(&mut self, ui: &mut egui::Ui, modal: &Modal) {
+        modal.title(ui, "Remove Prompt");
+        modal.body_and_icon(
+            ui,
+            "Do you really want to remove this prompt?",
+            Icon::Warning,
+        );
+
+        modal.buttons(ui, |ui| {
+            if modal.button(ui, "Cancel").clicked() {
+                self.view_state.modal = ViewModalState::None;
+            }
+
+            if modal.caution_button(ui, "Remove").clicked() {
+                match self.view_state.modal {
+                    ViewModalState::RemovePrompt(idx) => {
+                        self.view_state.modal = ViewModalState::None;
+                        self.prompts.remove(idx);
+                    }
+                    _ => self.view_state.modal = ViewModalState::None,
                 }
             }
         });

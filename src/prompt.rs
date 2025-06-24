@@ -1,8 +1,8 @@
 use std::{collections::VecDeque, time::Instant};
 
 use egui::{
-    CornerRadius, Frame, InnerResponse, Key, KeyboardShortcut, Label, Layout, Modifiers,
-    ScrollArea, Sense, Stroke, UiBuilder,
+    Color32, CornerRadius, Frame, Key, KeyboardShortcut, Label, Layout, Modifiers, ScrollArea,
+    Sense, Stroke, UiBuilder,
 };
 use egui_commonmark::{CommonMarkCache, CommonMarkViewer};
 use flowync::{CompactFlower, error::Compact};
@@ -84,11 +84,14 @@ impl Prompt {
         }
     }
 
-    pub fn show_left_panel(&self, ui: &mut egui::Ui, selected: bool, on_click: impl FnOnce()) {
-        let InnerResponse {
-            response: outer_response,
-            inner: inner_response,
-        } = ui.scope_builder(
+    pub fn show_left_panel(
+        &self,
+        ui: &mut egui::Ui,
+        selected: bool,
+        on_click: impl FnOnce(),
+        on_remove: impl FnOnce(),
+    ) {
+        let response = ui.scope_builder(
             UiBuilder::new()
                 .id_salt("left_panel_prompt")
                 .sense(Sense::click()),
@@ -109,7 +112,37 @@ impl Prompt {
                             .stroke(Stroke::new(2.0, ui.style().visuals.window_stroke.color))
                             .fill(fill_style)
                             .show(ui, |ui| {
-                                ui.add(egui::Label::wrap(egui::Label::new(&self.title)))
+                                ui.horizontal(|ui| {
+                                    let label_response =
+                                        ui.add(egui::Label::wrap(egui::Label::new(&self.title)));
+
+                                    let button_response = ui
+                                        .with_layout(
+                                            Layout::right_to_left(egui::Align::Min),
+                                            |ui| {
+                                                let response = ui.add(
+                                                    egui::Button::new("❌")
+                                                        .fill(Color32::TRANSPARENT)
+                                                        .small()
+                                                        .stroke(Stroke::NONE),
+                                                );
+
+                                                if response
+                                                    .clone()
+                                                    .on_hover_text("Remove prompt")
+                                                    .clicked()
+                                                {
+                                                    on_remove();
+                                                };
+
+                                                response
+                                            },
+                                        )
+                                        .inner;
+
+                                    label_response.union(button_response)
+                                })
+                                .inner
                             })
                             .inner
                     },
@@ -117,8 +150,7 @@ impl Prompt {
                 .inner
             },
         );
-
-        let response = outer_response.union(inner_response);
+        let response = response.response.union(response.inner);
 
         response
             .clone()
