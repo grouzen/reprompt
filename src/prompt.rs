@@ -31,6 +31,7 @@ type PromptAskFlower = CompactFlower<String, String, String>;
 struct PromptResponse {
     input: String,
     output: String,
+    local_model_name: String,
     #[serde(skip)]
     requested_at: Instant,
 }
@@ -60,16 +61,18 @@ impl Default for PromptResponse {
         Self {
             input: Default::default(),
             output: Default::default(),
+            local_model_name: "unknown_model".to_owned(),
             requested_at: Instant::now(),
         }
     }
 }
 
 impl PromptResponse {
-    pub fn new(input: String, output: String) -> Self {
+    pub fn new(input: String, output: String, local_model_name: String) -> Self {
         Self {
             input,
             output,
+            local_model_name,
             ..Default::default()
         }
     }
@@ -222,6 +225,9 @@ impl Prompt {
                                         .with_cross_justify(true)
                                         .with_cross_align(egui::Align::LEFT),
                                     |ui| {
+                                        ui.label(&response.local_model_name);
+                                        ui.add_space(6.0);
+
                                         Frame::group(ui.style())
                                             .stroke(Stroke::new(
                                                 1.0,
@@ -261,7 +267,11 @@ impl Prompt {
     ) {
         self.state = PromptState::Generating;
 
-        let response = PromptResponse::new(self.new_input.clone(), String::new());
+        let response = PromptResponse::new(
+            self.new_input.clone(),
+            String::new(),
+            local_model.name.clone(),
+        );
         self.history.push_front(response);
 
         self.ask_ollama(input, local_model, rt, ollama_client.clone());
