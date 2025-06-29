@@ -209,24 +209,7 @@ impl RepromptApp {
                         self.view_state.modal = ViewModalState::AddPrompt;
                     }
 
-                    if let Some(selected) = &self.ollama_models.selected {
-                        let mut clicked = None;
-
-                        egui::ComboBox::from_id_salt("left_panel_models_selector")
-                            .selected_text(&selected.name)
-                            .show_ui(ui, |ui| {
-                                for model in &self.ollama_models.available {
-                                    let checked = selected.name == model.name;
-                                    if ui.selectable_label(checked, &model.name).clicked() {
-                                        clicked = Some(model.clone());
-                                    }
-                                }
-                            });
-
-                        if let Some(clicked) = clicked {
-                            self.ollama_models.selected = Some(clicked);
-                        }
-                    }
+                    self.show_left_panel_model_selector(ui);
                 });
 
                 ui.separator();
@@ -241,6 +224,27 @@ impl RepromptApp {
                     self.show_add_prompt_modal(ui, &add_prompt_modal, add_prompt_modal_width);
                 });
             });
+    }
+
+    fn show_left_panel_model_selector(&mut self, ui: &mut egui::Ui) {
+        if let Some(selected) = &self.ollama_models.selected {
+            let mut clicked = None;
+
+            egui::ComboBox::from_id_salt("left_panel_models_selector")
+                .selected_text(&selected.name)
+                .show_ui(ui, |ui| {
+                    for model in &self.ollama_models.available {
+                        let checked = selected.name == model.name;
+                        if ui.selectable_label(checked, &model.name).clicked() {
+                            clicked = Some(model.clone());
+                        }
+                    }
+                });
+
+            if let Some(clicked) = clicked {
+                self.ollama_models.selected = Some(clicked);
+            }
+        }
     }
 
     fn show_left_panel_prompts(&mut self, ui: &mut egui::Ui) {
@@ -316,20 +320,33 @@ impl RepromptApp {
     }
 
     fn show_main_panel(&mut self, ctx: &egui::Context) {
-        let covered = self.is_covered();
+        let Self {
+            tokio_runtime,
+            commonmark_cache,
+            prompts,
+            ollama_models,
+            ..
+        } = self;
+
+        let local_model = match &ollama_models.selected {
+            Some(model) => model,
+            None => self.ollama_models.available.first().unwrap(),
+        };
+        let covered = !matches!(self.view_state.modal, ViewModalState::None);
 
         egui::CentralPanel::default().show(ctx, |ui| match self.view_state.main_panel {
             ViewMainPanelState::MixedHistory => {
                 ui.label("Reprompt!");
             }
             ViewMainPanelState::Prompt(idx) => {
-                if let Some(prompt) = self.prompts.get_mut(idx) {
+                if let Some(prompt) = prompts.get_mut(idx) {
                     prompt.show_main_panel(
                         ui,
+                        local_model,
                         covered,
-                        &self.tokio_runtime,
+                        tokio_runtime,
                         &self.ollama_client,
-                        &mut self.commonmark_cache,
+                        commonmark_cache,
                     );
 
                     if prompt.is_generating() {
@@ -406,10 +423,6 @@ impl RepromptApp {
                 };
             },
         );
-    }
-
-    fn is_covered(&self) -> bool {
-        !matches!(self.view_state.modal, ViewModalState::None)
     }
 
     fn is_prompt_selected(&self, idx: usize) -> bool {

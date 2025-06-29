@@ -1,8 +1,6 @@
 use ollama_rs::{Ollama, generation::completion::request::GenerationRequest, models::LocalModel};
 use tokio_stream::StreamExt;
 
-const DEFAULT_OLLAMA_MODEL: &str = "qwen2.5:7b";
-
 #[derive(Clone)]
 pub struct OllamaClient {
     ollama: Ollama,
@@ -16,11 +14,12 @@ impl OllamaClient {
     pub async fn generate_completion(
         &self,
         prompt: String,
+        model: &LocalModel,
         on_next: impl Fn(String),
     ) -> anyhow::Result<String> {
         let mut stream = self
             .ollama
-            .generate_stream(GenerationRequest::new(DEFAULT_OLLAMA_MODEL.into(), prompt))
+            .generate_stream(GenerationRequest::new(model.name.clone(), prompt))
             .await?;
         let mut response = String::new();
 

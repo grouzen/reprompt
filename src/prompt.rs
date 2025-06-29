@@ -6,6 +6,7 @@ use egui::{
 };
 use egui_commonmark::{CommonMarkCache, CommonMarkViewer};
 use flowync::{CompactFlower, error::Compact};
+use ollama_rs::models::LocalModel;
 use tokio::runtime;
 
 use crate::ollama::OllamaClient;
@@ -167,6 +168,7 @@ impl Prompt {
     pub fn show_main_panel(
         &mut self,
         ui: &mut egui::Ui,
+        local_model: &LocalModel,
         covered: bool,
         rt: &runtime::Runtime,
         ollama_client: &OllamaClient,
@@ -192,7 +194,7 @@ impl Prompt {
             && !self.new_input.is_empty()
             && ui.input(|i| i.key_pressed(Key::Enter) && i.modifiers.is_none())
         {
-            self.generate_response(self.new_input.clone(), rt, ollama_client);
+            self.generate_response(self.new_input.clone(), local_model, rt, ollama_client);
         }
 
         if self.ask_flower.is_active() {
@@ -253,6 +255,7 @@ impl Prompt {
     fn generate_response(
         &mut self,
         input: String,
+        local_model: &LocalModel,
         rt: &runtime::Runtime,
         ollama_client: &OllamaClient,
     ) {
@@ -261,18 +264,25 @@ impl Prompt {
         let response = PromptResponse::new(self.new_input.clone(), String::new());
         self.history.push_front(response);
 
-        self.ask_ollama(input, rt, ollama_client.clone());
+        self.ask_ollama(input, local_model, rt, ollama_client.clone());
     }
 
-    fn ask_ollama(&self, question: String, rt: &runtime::Runtime, ollama_client: OllamaClient) {
+    fn ask_ollama(
+        &self,
+        question: String,
+        local_model: &LocalModel,
+        rt: &runtime::Runtime,
+        ollama_client: OllamaClient,
+    ) {
         let handle = self.ask_flower.handle();
         let prompt = format!("{}:\n{}", self.content, question);
+        let local_model = local_model.clone();
 
         rt.spawn(async move {
             handle.activate();
 
             match ollama_client
-                .generate_completion(prompt, |response| handle.send(response))
+                .generate_completion(prompt, &local_model, |response| handle.send(response))
                 .await
             {
                 Ok(response) => handle.success(response),
