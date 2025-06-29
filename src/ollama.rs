@@ -1,4 +1,4 @@
-use ollama_rs::{Ollama, generation::completion::request::GenerationRequest};
+use ollama_rs::{Ollama, generation::completion::request::GenerationRequest, models::LocalModel};
 use tokio_stream::StreamExt;
 
 const DEFAULT_OLLAMA_MODEL: &str = "qwen2.5:7b";
@@ -13,7 +13,7 @@ impl OllamaClient {
         Self { ollama }
     }
 
-    pub async fn generate_ollama_completion(
+    pub async fn generate_completion(
         &self,
         prompt: String,
         on_next: impl Fn(String),
@@ -32,5 +32,12 @@ impl OllamaClient {
         }
 
         Ok(response)
+    }
+
+    pub async fn list_models(&self) -> anyhow::Result<Vec<LocalModel>> {
+        self.ollama
+            .list_local_models()
+            .await
+            .map_err(anyhow::Error::new)
     }
 }

@@ -272,7 +272,7 @@ impl Prompt {
             handle.activate();
 
             match ollama_client
-                .generate_ollama_completion(prompt, |response| handle.send(response))
+                .generate_completion(prompt, |response| handle.send(response))
                 .await
             {
                 Ok(response) => handle.success(response),

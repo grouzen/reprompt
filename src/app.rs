@@ -1,7 +1,8 @@
 use egui::{Button, Color32, Layout, ScrollArea, WidgetText};
 use egui_commonmark::CommonMarkCache;
 use egui_modal::{Icon, Modal, ModalStyle};
-use ollama_rs::Ollama;
+use flowync::{CompactFlower, error::Compact};
+use ollama_rs::{Ollama, models::LocalModel};
 use tokio::runtime;
 
 use crate::{ollama::OllamaClient, prompt::Prompt};
@@ -21,6 +22,7 @@ pub struct RepromptApp {
     tokio_runtime: runtime::Runtime,
     #[serde(skip)]
     ollama_client: OllamaClient,
+    ollama_models: OllamaModels,
     #[serde(skip)]
     commonmark_cache: CommonMarkCache,
 }
@@ -47,6 +49,19 @@ enum ViewMainPanelState {
     Prompt(usize),
 }
 
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+struct OllamaModels {
+    selected: Option<LocalModel>,
+    #[serde(skip)]
+    available: Vec<LocalModel>,
+    #[serde(skip)]
+    load_flower: LoadLocalModelsFlower,
+}
+
+type LoadLocalModelsFlower =
+    CompactFlower<Vec<LocalModel>, (Vec<LocalModel>, Option<LocalModel>), anyhow::Error>;
+
 impl Default for RepromptApp {
     fn default() -> Self {
         Self {
@@ -59,7 +74,18 @@ impl Default for RepromptApp {
                 .build()
                 .unwrap(),
             ollama_client: OllamaClient::new(Ollama::default()),
+            ollama_models: Default::default(),
             commonmark_cache: CommonMarkCache::default(),
+        }
+    }
+}
+
+impl Default for OllamaModels {
+    fn default() -> Self {
+        Self {
+            selected: Default::default(),
+            available: Default::default(),
+            load_flower: LoadLocalModelsFlower::new(1),
         }
     }
 }
@@ -93,6 +119,64 @@ impl RepromptApp {
     fn show(&mut self, ctx: &egui::Context) {
         self.show_left_panel(ctx);
         self.show_main_panel(ctx);
+
+        if self.ollama_models.load_flower.is_active() {
+            self.poll_load_flower();
+        }
+    }
+
+    pub fn load_local_models(&self) {
+        let handle = self.ollama_models.load_flower.handle();
+        let ollama_client = self.ollama_client.clone();
+        let current_selected = self.ollama_models.selected.clone();
+
+        self.tokio_runtime.spawn(async move {
+            handle.activate();
+
+            match ollama_client.list_models().await {
+                Ok(response) => {
+                    let mut maybe_selected = None;
+
+                    if let Some(default) = response.first() {
+                        match current_selected {
+                            Some(selected) => {
+                                if !response
+                                    .iter()
+                                    .map(|m| &m.name)
+                                    .cloned()
+                                    .collect::<Vec<String>>()
+                                    .contains(&selected.name)
+                                {
+                                    maybe_selected = Some(default.clone());
+                                }
+                            }
+                            None => maybe_selected = Some(default.clone()),
+                        }
+                    }
+
+                    handle.success((response, maybe_selected))
+                }
+                Err(e) => handle.error(e),
+            }
+        });
+    }
+
+    fn poll_load_flower(&mut self) {
+        self.ollama_models
+            .load_flower
+            .extract(|models| {
+                self.ollama_models.available = models;
+            })
+            .finalize(|result| match result {
+                Ok((models, maybe_selected)) => {
+                    self.ollama_models.available = models;
+                    if let Some(selected) = maybe_selected {
+                        self.ollama_models.selected = Some(selected);
+                    }
+                }
+                Err(Compact::Suppose(_)) => (),
+                Err(Compact::Panicked(_)) => (),
+            });
     }
 
     fn show_left_panel(&mut self, ctx: &egui::Context) {
@@ -112,6 +196,25 @@ impl RepromptApp {
                     if ui.button("➕").clicked() {
                         add_prompt_modal.open();
                         self.view_state.modal = ViewModalState::AddPrompt;
+                    }
+
+                    if let Some(selected) = &self.ollama_models.selected {
+                        let mut clicked = None;
+
+                        egui::ComboBox::from_id_salt("left_panel_models_selector")
+                            .selected_text(&selected.name)
+                            .show_ui(ui, |ui| {
+                                for model in &self.ollama_models.available {
+                                    let checked = selected.name == model.name;
+                                    if ui.selectable_label(checked, &model.name).clicked() {
+                                        clicked = Some(model.clone());
+                                    }
+                                }
+                            });
+
+                        if let Some(clicked) = clicked {
+                            self.ollama_models.selected = Some(clicked);
+                        }
                     }
                 });
 
