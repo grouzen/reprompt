@@ -135,24 +135,23 @@ impl RepromptApp {
 
             match ollama_client.list_models().await {
                 Ok(response) => {
-                    let mut maybe_selected = None;
-
-                    if let Some(default) = response.first() {
-                        match current_selected {
-                            Some(selected) => {
+                    let maybe_selected = match response.first() {
+                        Some(default) => match current_selected {
+                            Some(selected)
                                 if !response
                                     .iter()
                                     .map(|m| &m.name)
                                     .cloned()
                                     .collect::<Vec<String>>()
-                                    .contains(&selected.name)
-                                {
-                                    maybe_selected = Some(default.clone());
-                                }
+                                    .contains(&selected.name) =>
+                            {
+                                Some(default.clone())
                             }
-                            None => maybe_selected = Some(default.clone()),
-                        }
-                    }
+                            None => Some(default.clone()),
+                            _ => None,
+                        },
+                        _ => None,
+                    };
 
                     handle.success((response, maybe_selected))
                 }
@@ -195,19 +194,7 @@ impl RepromptApp {
                 ui.add_space(6.0);
 
                 ui.horizontal_top(|ui| {
-                    if ui
-                        .add(
-                            egui::Button::new("➕")
-                                .fill(Color32::TRANSPARENT)
-                                .small()
-                                .stroke(Stroke::NONE),
-                        )
-                        .on_hover_text("Create new prompt")
-                        .clicked()
-                    {
-                        add_prompt_modal.open();
-                        self.view_state.modal = ViewModalState::AddPrompt;
-                    }
+                    self.show_left_panel_create_protmp_button(ui, &add_prompt_modal);
 
                     self.show_left_panel_model_selector(ui);
                 });
@@ -224,6 +211,26 @@ impl RepromptApp {
                     self.show_add_prompt_modal(ui, &add_prompt_modal, add_prompt_modal_width);
                 });
             });
+    }
+
+    fn show_left_panel_create_protmp_button(
+        &mut self,
+        ui: &mut egui::Ui,
+        add_prompt_modal: &Modal,
+    ) {
+        if ui
+            .add(
+                egui::Button::new("➕")
+                    .fill(Color32::TRANSPARENT)
+                    .small()
+                    .stroke(Stroke::NONE),
+            )
+            .on_hover_text("Create new prompt")
+            .clicked()
+        {
+            add_prompt_modal.open();
+            self.view_state.modal = ViewModalState::AddPrompt;
+        }
     }
 
     fn show_left_panel_model_selector(&mut self, ui: &mut egui::Ui) {
