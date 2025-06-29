@@ -1,4 +1,4 @@
-use egui::{Button, Color32, Layout, ScrollArea, WidgetText};
+use egui::{Button, Color32, Layout, ScrollArea, Stroke, WidgetText};
 use egui_commonmark::CommonMarkCache;
 use egui_modal::{Icon, Modal, ModalStyle};
 use flowync::{CompactFlower, error::Compact};
@@ -192,8 +192,19 @@ impl RepromptApp {
                 let add_prompt_modal_width = available_width * 0.5;
                 let add_prompt_modal = self.create_add_prompt_modal(ui, add_prompt_modal_width);
 
+                ui.add_space(6.0);
+
                 ui.horizontal_top(|ui| {
-                    if ui.button("➕").clicked() {
+                    if ui
+                        .add(
+                            egui::Button::new("➕")
+                                .fill(Color32::TRANSPARENT)
+                                .small()
+                                .stroke(Stroke::NONE),
+                        )
+                        .on_hover_text("Create new prompt")
+                        .clicked()
+                    {
                         add_prompt_modal.open();
                         self.view_state.modal = ViewModalState::AddPrompt;
                     }
@@ -217,6 +228,8 @@ impl RepromptApp {
                         }
                     }
                 });
+
+                ui.separator();
 
                 self.show_left_panel_prompts(ui);
 
