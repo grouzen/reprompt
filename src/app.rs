@@ -336,8 +336,8 @@ impl RepromptApp {
         } = self;
 
         let local_model = match &ollama_models.selected {
-            Some(model) => model,
-            None => self.ollama_models.available.first().unwrap(),
+            Some(model) => Some(model),
+            None => self.ollama_models.available.first(),
         };
         let covered = !matches!(self.view_state.modal, ViewModalState::None);
 
@@ -346,18 +346,20 @@ impl RepromptApp {
                 ui.label("Reprompt!");
             }
             ViewMainPanelState::Prompt(idx) => {
-                if let Some(prompt) = prompts.get_mut(idx) {
-                    prompt.show_main_panel(
-                        ui,
-                        local_model,
-                        covered,
-                        tokio_runtime,
-                        &self.ollama_client,
-                        commonmark_cache,
-                    );
+                if let Some(local_model) = local_model {
+                    if let Some(prompt) = prompts.get_mut(idx) {
+                        prompt.show_main_panel(
+                            ui,
+                            local_model,
+                            covered,
+                            tokio_runtime,
+                            &self.ollama_client,
+                            commonmark_cache,
+                        );
 
-                    if prompt.is_generating() {
-                        ctx.request_repaint();
+                        if prompt.is_generating() {
+                            ctx.request_repaint();
+                        }
                     }
                 }
             }
