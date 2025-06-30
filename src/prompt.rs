@@ -225,7 +225,11 @@ impl Prompt {
                                         .with_cross_justify(true)
                                         .with_cross_align(egui::Align::LEFT),
                                     |ui| {
-                                        ui.label(&response.local_model_name);
+                                        ui.horizontal(|ui| {
+                                            ui.label("🖳");
+                                            ui.label(&response.local_model_name);
+                                        });
+
                                         ui.add_space(6.0);
 
                                         Frame::group(ui.style())
