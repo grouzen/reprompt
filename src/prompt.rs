@@ -319,7 +319,7 @@ impl Prompt {
                         self.history.get_mut(0).unwrap().output = e;
                     }
                     Err(Compact::Panicked(e)) => {
-                        let message = format!("Tokio task panicked: {}", e);
+                        let message = format!("Tokio task panicked: {e}");
                         self.history.get_mut(0).unwrap().output = message;
                     }
                 }
