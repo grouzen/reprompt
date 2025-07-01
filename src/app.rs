@@ -1,6 +1,7 @@
 use egui::{Button, Color32, Layout, ScrollArea, Stroke, WidgetText};
 use egui_commonmark::CommonMarkCache;
 use egui_modal::{Icon, Modal, ModalStyle};
+use egui_theme_switch::global_theme_switch;
 use flowync::{CompactFlower, error::Compact};
 use ollama_rs::{Ollama, models::LocalModel};
 use tokio::runtime;
@@ -202,6 +203,11 @@ impl RepromptApp {
                 ui.separator();
 
                 self.show_left_panel_prompts(ui);
+
+                ui.with_layout(Layout::bottom_up(egui::Align::Min), |ui| {
+                    ui.add_space(6.0);
+                    global_theme_switch(ui);
+                });
 
                 if add_prompt_modal.was_outside_clicked() {
                     self.view_state.modal = ViewModalState::None;
