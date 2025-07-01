@@ -6,6 +6,7 @@ use egui::{
 };
 use egui_commonmark::{CommonMarkCache, CommonMarkViewer};
 use flowync::{CompactFlower, error::Compact};
+use ollama_rs::models::LocalModel;
 use tokio::runtime;
 
 use crate::ollama::OllamaClient;
@@ -30,6 +31,7 @@ type PromptAskFlower = CompactFlower<String, String, String>;
 struct PromptResponse {
     input: String,
     output: String,
+    local_model_name: String,
     #[serde(skip)]
     requested_at: Instant,
 }
@@ -59,16 +61,18 @@ impl Default for PromptResponse {
         Self {
             input: Default::default(),
             output: Default::default(),
+            local_model_name: "unknown_model".to_owned(),
             requested_at: Instant::now(),
         }
     }
 }
 
 impl PromptResponse {
-    pub fn new(input: String, output: String) -> Self {
+    pub fn new(input: String, output: String, local_model_name: String) -> Self {
         Self {
             input,
             output,
+            local_model_name,
             ..Default::default()
         }
     }
@@ -167,6 +171,7 @@ impl Prompt {
     pub fn show_main_panel(
         &mut self,
         ui: &mut egui::Ui,
+        local_model: &LocalModel,
         covered: bool,
         rt: &runtime::Runtime,
         ollama_client: &OllamaClient,
@@ -192,7 +197,7 @@ impl Prompt {
             && !self.new_input.is_empty()
             && ui.input(|i| i.key_pressed(Key::Enter) && i.modifiers.is_none())
         {
-            self.generate_response(self.new_input.clone(), rt, ollama_client);
+            self.generate_response(self.new_input.clone(), local_model, rt, ollama_client);
         }
 
         if self.ask_flower.is_active() {
@@ -220,6 +225,13 @@ impl Prompt {
                                         .with_cross_justify(true)
                                         .with_cross_align(egui::Align::LEFT),
                                     |ui| {
+                                        ui.horizontal(|ui| {
+                                            ui.label("🖳");
+                                            ui.label(&response.local_model_name);
+                                        });
+
+                                        ui.add_space(6.0);
+
                                         Frame::group(ui.style())
                                             .stroke(Stroke::new(
                                                 1.0,
@@ -253,26 +265,38 @@ impl Prompt {
     fn generate_response(
         &mut self,
         input: String,
+        local_model: &LocalModel,
         rt: &runtime::Runtime,
         ollama_client: &OllamaClient,
     ) {
         self.state = PromptState::Generating;
 
-        let response = PromptResponse::new(self.new_input.clone(), String::new());
+        let response = PromptResponse::new(
+            self.new_input.clone(),
+            String::new(),
+            local_model.name.clone(),
+        );
         self.history.push_front(response);
 
-        self.ask_ollama(input, rt, ollama_client.clone());
+        self.ask_ollama(input, local_model, rt, ollama_client.clone());
     }
 
-    fn ask_ollama(&self, question: String, rt: &runtime::Runtime, ollama_client: OllamaClient) {
+    fn ask_ollama(
+        &self,
+        question: String,
+        local_model: &LocalModel,
+        rt: &runtime::Runtime,
+        ollama_client: OllamaClient,
+    ) {
         let handle = self.ask_flower.handle();
         let prompt = format!("{}:\n{}", self.content, question);
+        let local_model = local_model.clone();
 
         rt.spawn(async move {
             handle.activate();
 
             match ollama_client
-                .generate_ollama_completion(prompt, |response| handle.send(response))
+                .generate_completion(prompt, &local_model, |response| handle.send(response))
                 .await
             {
                 Ok(response) => handle.success(response),
