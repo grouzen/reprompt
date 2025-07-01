@@ -74,7 +74,7 @@ jobs:
       - name: Build archive
         shell: bash
         run: |
-          binary_name="ollana"
+          binary_name="reprompt"
 
           dirname="$binary_name-${{ env.VERSION }}-${{ matrix.target }}"
           mkdir "$dirname"
