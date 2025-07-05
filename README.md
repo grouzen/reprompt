@@ -1,11 +1,13 @@
 # Reprompt
 
-:pencil: Ever stuck typing the same prompt over and over?  
-:computer: Reprompt is a user-friendly desktop application that simplifies the process of repeatedly asking questions to your local [Ollama](https://ollama.com/) model.  
-:key: For people who prioritize data privacy and security.  
-:microscope: Choose from any of your locally installed models, and ask away!  
+- :pencil: Ever stuck typing the same prompt over and over?  
+- :computer: Reprompt is a user-friendly desktop application that simplifies the process of repeatedly asking questions to your local [Ollama](https://ollama.com/) model.  
+- :key: For people who prioritize data privacy and security.  
+- :microscope: Choose from any of your locally installed models, and ask away!  
 
+*** 
 :bulb: In case you're also experiencing difficulties connecting to your Ollama instance, I recommend checking out my other project **[Ollana](https://github.com/grouzen/ollana/)**
+***
 
 ## Table of contents
 
