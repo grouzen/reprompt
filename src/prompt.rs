@@ -139,6 +139,13 @@ impl Prompt {
                                                         .stroke(Stroke::NONE),
                                                 );
 
+                                                ui.add(
+                                                    egui::Button::new("\u{270f}")
+                                                        .fill(Color32::TRANSPARENT)
+                                                        .small()
+                                                        .stroke(Stroke::NONE),
+                                                );
+
                                                 if response
                                                     .clone()
                                                     .on_hover_text("Remove prompt")
