@@ -14,14 +14,14 @@ use crate::{app::Action, ollama::OllamaClient};
 #[derive(serde::Serialize, serde::Deserialize)]
 #[serde(default)]
 pub struct Prompt {
-    title: String,
-    content: String,
+    pub title: String,
+    pub content: String,
     history: VecDeque<PromptResponse>,
     new_input: String,
     #[serde(skip)]
     ask_flower: PromptAskFlower,
     #[serde(skip)]
-    state: PromptState,
+    pub state: PromptState,
 }
 
 impl Default for Prompt {
@@ -61,10 +61,16 @@ impl Default for PromptResponse {
 }
 
 #[derive(Default)]
-enum PromptState {
+pub enum PromptState {
     #[default]
     Idle,
     Generating,
+}
+
+impl PromptState {
+    pub fn is_generating(&self) -> bool {
+        matches!(self, PromptState::Generating)
+    }
 }
 
 impl PromptResponse {
@@ -122,16 +128,27 @@ impl Prompt {
                                         ui.add(egui::Label::wrap(egui::Label::new(&self.title)));
 
                                     ui.with_layout(Layout::right_to_left(egui::Align::Min), |ui| {
-                                        let response = ui.add(
+                                        let remove_response = ui.add(
                                             egui::Button::new("❌")
                                                 .fill(Color32::TRANSPARENT)
                                                 .small()
                                                 .stroke(Stroke::NONE),
                                         );
 
-                                        if response.clone().on_hover_text("Remove prompt").clicked()
+                                        let edit_response = ui.add(
+                                            egui::Button::new("\u{270f}")
+                                                .fill(Color32::TRANSPARENT)
+                                                .small()
+                                                .stroke(Stroke::NONE),
+                                        );
+
+                                        if remove_response.on_hover_text("Remove prompt").clicked()
                                         {
                                             action = Some(Action::OpenRemovePromptDialog(idx));
+                                        }
+
+                                        if edit_response.on_hover_text("Edit prompt").clicked() {
+                                            action = Some(Action::OpenEditPromptDialog(idx));
                                         }
                                     });
 
@@ -167,14 +184,14 @@ impl Prompt {
         ollama_client: &OllamaClient,
         commonmark_cache: &mut CommonMarkCache,
     ) {
+        let is_input_interactive = !self.state.is_generating();
+
         ui.with_layout(
             Layout::left_to_right(egui::Align::TOP).with_main_justify(true),
             |ui| {
-                let interactive = !self.is_generating();
-
                 egui::TextEdit::multiline(&mut self.new_input)
                     .hint_text(format!("Ask for the following prompt: {}", self.content))
-                    .interactive(interactive)
+                    .interactive(is_input_interactive)
                     .return_key(KeyboardShortcut::new(Modifiers::SHIFT, Key::Enter))
                     .show(ui);
             },
@@ -182,7 +199,7 @@ impl Prompt {
 
         ui.separator();
 
-        if !self.is_generating()
+        if is_input_interactive
             && !is_modal_shown
             && !self.new_input.is_empty()
             && ui.input(|i| i.key_pressed(Key::Enter) && i.modifiers.is_none())
@@ -246,10 +263,6 @@ impl Prompt {
                 );
             }
         });
-    }
-
-    pub fn is_generating(&self) -> bool {
-        matches!(self.state, PromptState::Generating)
     }
 
     fn generate_response(
