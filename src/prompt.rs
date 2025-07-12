@@ -209,7 +209,7 @@ impl Prompt {
 
     fn show_prompt_history(&self, ui: &mut egui::Ui, commonmark_cache: &mut CommonMarkCache) {
         ScrollArea::vertical().show(ui, |ui| {
-            for response in self.history.iter() {
+            for prompt_response in self.history.iter() {
                 ui.add_space(3.0);
                 ui.with_layout(
                     Layout::left_to_right(egui::Align::TOP)
@@ -227,7 +227,7 @@ impl Prompt {
                                     |ui| {
                                         ui.horizontal(|ui| {
                                             ui.label("🖳");
-                                            ui.label(&response.local_model_name);
+                                            ui.label(&prompt_response.local_model_name);
                                         });
 
                                         ui.add_space(6.0);
@@ -240,14 +240,14 @@ impl Prompt {
                                             .fill(ui.style().visuals.faint_bg_color)
                                             .show(ui, |ui| {
                                                 ui.add(egui::Label::wrap(Label::new(
-                                                    &response.input,
+                                                    &prompt_response.input,
                                                 )));
                                             });
 
                                         CommonMarkViewer::new().show(
                                             ui,
                                             commonmark_cache,
-                                            &response.output,
+                                            &prompt_response.output,
                                         );
                                     },
                                 );
