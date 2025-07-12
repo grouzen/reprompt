@@ -157,7 +157,7 @@ impl Prompt {
         &mut self,
         ui: &mut egui::Ui,
         local_model: &LocalModel,
-        covered: bool,
+        is_modal_shown: bool,
         rt: &runtime::Runtime,
         ollama_client: &OllamaClient,
         commonmark_cache: &mut CommonMarkCache,
@@ -178,7 +178,7 @@ impl Prompt {
         ui.separator();
 
         if !self.is_generating()
-            && !covered
+            && !is_modal_shown
             && !self.new_input.is_empty()
             && ui.input(|i| i.key_pressed(Key::Enter) && i.modifiers.is_none())
         {

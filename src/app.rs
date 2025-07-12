@@ -35,6 +35,28 @@ struct ViewState {
     main_panel: ViewMainPanelState,
 }
 
+impl ViewState {
+    pub fn is_modal_shown(&self) -> bool {
+        !matches!(self.modal, ViewModalState::None)
+    }
+
+    pub fn close_modal(&mut self) {
+        self.modal = ViewModalState::None;
+    }
+
+    pub fn open_add_prompt_modal(&mut self) {
+        self.modal = ViewModalState::AddPrompt;
+    }
+
+    pub fn open_remove_prompt_modal(&mut self, idx: usize) {
+        self.modal = ViewModalState::RemovePrompt(idx);
+    }
+
+    pub fn select_prompt(&mut self, idx: usize) {
+        self.main_panel = ViewMainPanelState::Prompt(idx);
+    }
+}
+
 #[derive(serde::Serialize, serde::Deserialize, Default)]
 enum ViewModalState {
     #[default]
@@ -147,17 +169,17 @@ impl RepromptApp {
             match action {
                 Action::OpenAddPromptDialog => {
                     add_prompt_modal.open();
-                    self.view_state.modal = ViewModalState::AddPrompt;
+                    self.view_state.open_add_prompt_modal();
                 }
                 Action::CloseAddPromptDialog => {
-                    self.view_state.modal = ViewModalState::None;
+                    self.view_state.close_modal();
                 }
                 Action::CancelPromptCreation => {
                     self.new_prompt_title.clear();
                     self.new_prompt_content.clear();
 
                     add_prompt_modal.close();
-                    self.view_state.modal = ViewModalState::None;
+                    self.view_state.close_modal();
                 }
                 Action::CreatePrompt => {
                     let id = self.prompts.len();
@@ -172,21 +194,21 @@ impl RepromptApp {
                     self.new_prompt_content.clear();
 
                     add_prompt_modal.close();
-                    self.view_state.modal = ViewModalState::None;
+                    self.view_state.close_modal();
                 }
                 Action::OpenRemovePromptDialog(idx) => {
                     remove_prompt_modal.open();
-                    self.view_state.modal = ViewModalState::RemovePrompt(idx);
+                    self.view_state.open_remove_prompt_modal(idx);
                 }
                 Action::CloseRemovePromptDialog => {
-                    self.view_state.modal = ViewModalState::None;
+                    self.view_state.close_modal();
                 }
                 Action::RemovePrompt(idx) => {
-                    self.view_state.modal = ViewModalState::None;
+                    self.view_state.close_modal();
                     self.prompts.remove(idx);
                 }
                 Action::SelectPrompt(idx) => {
-                    self.view_state.main_panel = ViewMainPanelState::Prompt(idx);
+                    self.view_state.select_prompt(idx);
                 }
                 Action::SelectOllamaModel(local_model) => {
                     self.ollama_models.selected = Some(local_model);
@@ -421,7 +443,6 @@ impl RepromptApp {
             Some(model) => Some(model),
             None => self.ollama_models.available.first(),
         };
-        let covered = !matches!(self.view_state.modal, ViewModalState::None);
 
         egui::CentralPanel::default().show(ctx, |ui| match self.view_state.main_panel {
             ViewMainPanelState::MixedHistory => {
@@ -433,7 +454,7 @@ impl RepromptApp {
                         prompt.show_main_panel(
                             ui,
                             local_model,
-                            covered,
+                            self.view_state.is_modal_shown(),
                             tokio_runtime,
                             &self.ollama_client,
                             commonmark_cache,
