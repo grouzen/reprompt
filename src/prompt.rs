@@ -9,7 +9,7 @@ use flowync::{CompactFlower, error::Compact};
 use ollama_rs::models::LocalModel;
 use tokio::runtime;
 
-use crate::ollama::OllamaClient;
+use crate::{app::Action, ollama::OllamaClient};
 
 #[derive(serde::Serialize, serde::Deserialize)]
 #[serde(default)]
@@ -88,16 +88,9 @@ impl Prompt {
         }
     }
 
-    pub fn show_left_panel<F, G>(
-        &self,
-        ui: &mut egui::Ui,
-        selected: bool,
-        on_click: F,
-        on_remove: G,
-    ) where
-        F: FnOnce(),
-        G: FnOnce(),
-    {
+    pub fn show_left_panel(&self, ui: &mut egui::Ui, selected: bool, idx: usize) -> Option<Action> {
+        let mut action = None;
+
         let response = ui.scope_builder(
             UiBuilder::new()
                 .id_salt("left_panel_prompt")
@@ -123,31 +116,24 @@ impl Prompt {
                                     let label_response =
                                         ui.add(egui::Label::wrap(egui::Label::new(&self.title)));
 
-                                    let button_response = ui
-                                        .with_layout(
-                                            Layout::right_to_left(egui::Align::Min),
-                                            |ui| {
-                                                let response = ui.add(
-                                                    egui::Button::new("❌")
-                                                        .fill(Color32::TRANSPARENT)
-                                                        .small()
-                                                        .stroke(Stroke::NONE),
-                                                );
+                                    ui.with_layout(Layout::right_to_left(egui::Align::Min), |ui| {
+                                        let response = ui.add(
+                                            egui::Button::new("❌")
+                                                .fill(Color32::TRANSPARENT)
+                                                .small()
+                                                .stroke(Stroke::NONE),
+                                        );
 
-                                                if response
-                                                    .clone()
-                                                    .on_hover_text("Remove prompt")
-                                                    .clicked()
-                                                {
-                                                    on_remove();
-                                                };
+                                        if response.clone().on_hover_text("Remove prompt").clicked()
+                                        {
+                                            action = Some(Action::OpenRemovePromptDialog(idx));
+                                        };
 
-                                                response
-                                            },
-                                        )
-                                        .inner;
+                                        response
+                                    })
+                                    .inner;
 
-                                    label_response.union(button_response)
+                                    label_response
                                 })
                                 .inner
                             })
@@ -164,8 +150,10 @@ impl Prompt {
             .on_hover_cursor(egui::CursorIcon::PointingHand);
 
         if response.clicked() {
-            on_click();
+            action = Some(Action::SelectPrompt(idx));
         }
+
+        action
     }
 
     pub fn show_main_panel(

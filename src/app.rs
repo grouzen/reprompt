@@ -6,7 +6,7 @@ use flowync::{CompactFlower, error::Compact};
 use ollama_rs::{Ollama, models::LocalModel};
 use tokio::runtime;
 
-use crate::{ollama::OllamaClient, prompt::Prompt};
+use crate::{assign_if_some, ollama::OllamaClient, prompt::Prompt};
 
 pub const TITLE: &str = "Reprompt";
 
@@ -68,11 +68,16 @@ struct OllamaModels {
 type LoadLocalModelsFlower =
     CompactFlower<Vec<LocalModel>, (Vec<LocalModel>, Option<LocalModel>), anyhow::Error>;
 
-enum Action {
+#[derive(Debug)]
+pub enum Action {
     OpenAddPromptDialog,
     CloseAddPromptDialog,
     CancelPromptCreation,
     CreatePrompt,
+    OpenRemovePromptDialog(usize),
+    CloseRemovePromptDialog,
+    RemovePrompt(usize),
+    SelectPrompt(usize),
 }
 
 impl Default for RepromptApp {
@@ -113,10 +118,12 @@ impl eframe::App for RepromptApp {
 
         let add_prompt_modal =
             Self::create_add_prompt_modal(&mut ui, ctx.available_rect().width() * 0.5);
+        let remove_prompt_modal =
+            Modal::new(ui.ctx(), "remove_prompt_modal").with_close_on_outside_click(true);
 
-        let action = self.show(ctx, &add_prompt_modal);
+        let action = self.show(ctx, &add_prompt_modal, &remove_prompt_modal);
 
-        self.handle_action(action, &add_prompt_modal);
+        self.handle_action(action, &add_prompt_modal, &remove_prompt_modal);
     }
 
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
@@ -140,7 +147,12 @@ impl RepromptApp {
         ctx.set_zoom_factor(1.2);
     }
 
-    fn handle_action(&mut self, action: Option<Action>, add_prompt_modal: &Modal) {
+    fn handle_action(
+        &mut self,
+        action: Option<Action>,
+        add_prompt_modal: &Modal,
+        remove_prompt_modal: &Modal,
+    ) {
         if let Some(action) = action {
             match action {
                 Action::OpenAddPromptDialog => {
@@ -170,21 +182,22 @@ impl RepromptApp {
                     add_prompt_modal.close();
                     self.view_state.modal = ViewModalState::None;
                 }
+                Action::OpenRemovePromptDialog(idx) => {
+                    remove_prompt_modal.open();
+                    self.view_state.modal = ViewModalState::RemovePrompt(idx);
+                }
+                Action::CloseRemovePromptDialog => {
+                    self.view_state.modal = ViewModalState::None;
+                }
+                Action::RemovePrompt(idx) => {
+                    self.view_state.modal = ViewModalState::None;
+                    self.prompts.remove(idx);
+                }
+                Action::SelectPrompt(idx) => {
+                    self.view_state.main_panel = ViewMainPanelState::Prompt(idx);
+                }
             }
         }
-    }
-
-    fn show(&mut self, ctx: &egui::Context, add_prompt_modal: &Modal) -> Option<Action> {
-        // let mut action = None;
-
-        let action = self.show_left_panel(ctx, add_prompt_modal);
-        self.show_main_panel(ctx);
-
-        if self.ollama_models.load_flower.is_active() {
-            self.poll_load_flower();
-        }
-
-        action
     }
 
     pub fn load_local_models(&self) {
@@ -238,11 +251,30 @@ impl RepromptApp {
             });
     }
 
-    fn show_left_panel(&mut self, ctx: &egui::Context, add_prompt_modal: &Modal) -> Option<Action> {
-        let available_width = ctx.available_rect().width();
-        let max_width = available_width * 0.3;
-        let min_width = available_width * 0.2;
+    fn show(
+        &mut self,
+        ctx: &egui::Context,
+        add_prompt_modal: &Modal,
+        remove_prompt_modal: &Modal,
+    ) -> Option<Action> {
+        let action = self.show_left_panel(ctx, add_prompt_modal, remove_prompt_modal);
 
+        self.show_main_panel(ctx);
+
+        if self.ollama_models.load_flower.is_active() {
+            self.poll_load_flower();
+        }
+
+        action
+    }
+
+    fn show_left_panel(
+        &mut self,
+        ctx: &egui::Context,
+        add_prompt_modal: &Modal,
+        remove_prompt_modal: &Modal,
+    ) -> Option<Action> {
+        let (max_width, min_width) = Self::get_left_panel_width(ctx);
         let mut action = None;
 
         egui::SidePanel::left("left_panel_prompts")
@@ -253,14 +285,17 @@ impl RepromptApp {
                 ui.add_space(6.0);
 
                 ui.horizontal_top(|ui| {
-                    action = self.show_left_panel_create_protmp_button(ui);
+                    assign_if_some!(action, self.show_left_panel_create_protmp_button(ui));
 
                     self.show_left_panel_model_selector(ui);
                 });
 
                 ui.separator();
 
-                self.show_left_panel_prompts(ui);
+                assign_if_some!(
+                    action,
+                    self.show_left_panel_prompts(ui, remove_prompt_modal)
+                );
 
                 ui.with_layout(Layout::bottom_up(egui::Align::Min), |ui| {
                     ui.add_space(6.0);
@@ -272,7 +307,7 @@ impl RepromptApp {
                 }
 
                 add_prompt_modal.show(|ui| {
-                    action = self.show_add_prompt_modal(ui, add_prompt_modal);
+                    assign_if_some!(action, self.show_add_prompt_modal(ui, add_prompt_modal));
                 });
             });
 
@@ -319,55 +354,40 @@ impl RepromptApp {
         }
     }
 
-    fn show_left_panel_prompts(&mut self, ui: &mut egui::Ui) {
-        ScrollArea::vertical().show(ui, |ui| {
-            let remove_prompt_modal =
-                Modal::new(ui.ctx(), "remove_prompt_modal").with_close_on_outside_click(true);
+    fn show_left_panel_prompts(
+        &mut self,
+        ui: &mut egui::Ui,
+        remove_prompt_modal: &Modal,
+    ) -> Option<Action> {
+        let mut action = None;
 
+        ScrollArea::vertical().show(ui, |ui| {
             for (idx, prompt) in self.prompts.iter().enumerate() {
                 let selected = self.is_prompt_selected(idx);
 
                 ui.add_space(3.0);
 
-                prompt.show_left_panel(
-                    ui,
-                    selected,
-                    || self.view_state.main_panel = ViewMainPanelState::Prompt(idx),
-                    || {
-                        remove_prompt_modal.open();
-                        self.view_state.modal = ViewModalState::RemovePrompt(idx);
-                    },
-                );
+                assign_if_some!(action, prompt.show_left_panel(ui, selected, idx));
 
                 if remove_prompt_modal.was_outside_clicked() {
-                    self.view_state.modal = ViewModalState::None;
+                    action = Some(Action::CloseRemovePromptDialog);
                 }
             }
 
             remove_prompt_modal.show(|ui| {
-                self.show_remove_prompt_modal(
-                    ui,
-                    &remove_prompt_modal,
-                    |s| s.view_state.modal = ViewModalState::None,
-                    |s, idx| {
-                        s.view_state.modal = ViewModalState::None;
-                        s.prompts.remove(idx);
-                    },
+                assign_if_some!(
+                    action,
+                    self.show_remove_prompt_modal(ui, &remove_prompt_modal)
                 );
             });
         });
+
+        action
     }
 
-    fn show_remove_prompt_modal<F, G>(
-        &mut self,
-        ui: &mut egui::Ui,
-        modal: &Modal,
-        on_cancel: F,
-        on_remove: G,
-    ) where
-        F: Fn(&mut Self),
-        G: FnOnce(&mut Self, usize),
-    {
+    fn show_remove_prompt_modal(&mut self, ui: &mut egui::Ui, modal: &Modal) -> Option<Action> {
+        let mut action = None;
+
         modal.title(ui, "Remove Prompt");
         modal.body_and_icon(
             ui,
@@ -377,18 +397,22 @@ impl RepromptApp {
 
         modal.buttons(ui, |ui| {
             if modal.button(ui, "Cancel").clicked() {
-                on_cancel(self);
+                action = Some(Action::CloseRemovePromptDialog);
             }
 
             if modal.caution_button(ui, "Remove").clicked() {
                 match self.view_state.modal {
                     ViewModalState::RemovePrompt(idx) => {
-                        on_remove(self, idx);
+                        action = Some(Action::RemovePrompt(idx));
                     }
-                    _ => on_cancel(self),
+                    _ => {
+                        action = Some(Action::CloseRemovePromptDialog);
+                    }
                 }
             }
         });
+
+        action
     }
 
     fn show_main_panel(&mut self, ctx: &egui::Context) {
@@ -431,21 +455,6 @@ impl RepromptApp {
         });
     }
 
-    fn create_add_prompt_modal(ui: &mut egui::Ui, width: f32) -> Modal {
-        let style = ModalStyle {
-            default_width: Some(width),
-            ..Default::default()
-        };
-
-        Modal::new(ui.ctx(), "add_prompt_modal")
-            .with_close_on_outside_click(true)
-            .with_style(&style)
-    }
-
-    fn add_prompt_modal_width(ctx: &egui::Context) -> f32 {
-        ctx.available_rect().width() * 0.5
-    }
-
     fn show_add_prompt_modal(
         &mut self,
         ui: &mut egui::Ui,
@@ -454,7 +463,7 @@ impl RepromptApp {
         let mut action = None;
 
         add_prompt_modal.frame(ui, |ui| {
-            let text_width = Self::add_prompt_modal_width(ui.ctx());
+            let text_width = Self::get_add_prompt_modal_width(ui.ctx());
 
             egui::TextEdit::singleline(&mut self.new_prompt_title)
                 .hint_text("Write the title of your prompt here")
@@ -499,5 +508,28 @@ impl RepromptApp {
 
     fn is_prompt_selected(&self, idx: usize) -> bool {
         matches!(self.view_state.main_panel, ViewMainPanelState::Prompt(idx0) if idx0 == idx)
+    }
+
+    fn create_add_prompt_modal(ui: &mut egui::Ui, width: f32) -> Modal {
+        let style = ModalStyle {
+            default_width: Some(width),
+            ..Default::default()
+        };
+
+        Modal::new(ui.ctx(), "add_prompt_modal")
+            .with_close_on_outside_click(true)
+            .with_style(&style)
+    }
+
+    fn get_add_prompt_modal_width(ctx: &egui::Context) -> f32 {
+        ctx.available_rect().width() * 0.5
+    }
+
+    fn get_left_panel_width(ctx: &egui::Context) -> (f32, f32) {
+        let available_width = ctx.available_rect().width();
+        let max_width = available_width * 0.3;
+        let min_width = available_width * 0.2;
+
+        (max_width, min_width)
     }
 }
