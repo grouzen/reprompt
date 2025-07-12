@@ -9,7 +9,7 @@ use flowync::{CompactFlower, error::Compact};
 use ollama_rs::models::LocalModel;
 use tokio::runtime;
 
-use crate::ollama::OllamaClient;
+use crate::{app::Action, ollama::OllamaClient};
 
 #[derive(serde::Serialize, serde::Deserialize)]
 #[serde(default)]
@@ -22,25 +22,6 @@ pub struct Prompt {
     ask_flower: PromptAskFlower,
     #[serde(skip)]
     state: PromptState,
-}
-
-type PromptAskFlower = CompactFlower<String, String, String>;
-
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
-#[serde(default)]
-struct PromptResponse {
-    input: String,
-    output: String,
-    local_model_name: String,
-    #[serde(skip)]
-    requested_at: Instant,
-}
-
-#[derive(Default)]
-enum PromptState {
-    #[default]
-    Idle,
-    Generating,
 }
 
 impl Default for Prompt {
@@ -56,6 +37,18 @@ impl Default for Prompt {
     }
 }
 
+type PromptAskFlower = CompactFlower<String, String, String>;
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+#[serde(default)]
+struct PromptResponse {
+    input: String,
+    output: String,
+    local_model_name: String,
+    #[serde(skip)]
+    requested_at: Instant,
+}
+
 impl Default for PromptResponse {
     fn default() -> Self {
         Self {
@@ -65,6 +58,13 @@ impl Default for PromptResponse {
             requested_at: Instant::now(),
         }
     }
+}
+
+#[derive(Default)]
+enum PromptState {
+    #[default]
+    Idle,
+    Generating,
 }
 
 impl PromptResponse {
@@ -88,16 +88,9 @@ impl Prompt {
         }
     }
 
-    pub fn show_left_panel<F, G>(
-        &self,
-        ui: &mut egui::Ui,
-        selected: bool,
-        on_click: F,
-        on_remove: G,
-    ) where
-        F: FnOnce(),
-        G: FnOnce(),
-    {
+    pub fn show_left_panel(&self, ui: &mut egui::Ui, selected: bool, idx: usize) -> Option<Action> {
+        let mut action = None;
+
         let response = ui.scope_builder(
             UiBuilder::new()
                 .id_salt("left_panel_prompt")
@@ -123,31 +116,21 @@ impl Prompt {
                                     let label_response =
                                         ui.add(egui::Label::wrap(egui::Label::new(&self.title)));
 
-                                    let button_response = ui
-                                        .with_layout(
-                                            Layout::right_to_left(egui::Align::Min),
-                                            |ui| {
-                                                let response = ui.add(
-                                                    egui::Button::new("❌")
-                                                        .fill(Color32::TRANSPARENT)
-                                                        .small()
-                                                        .stroke(Stroke::NONE),
-                                                );
+                                    ui.with_layout(Layout::right_to_left(egui::Align::Min), |ui| {
+                                        let response = ui.add(
+                                            egui::Button::new("❌")
+                                                .fill(Color32::TRANSPARENT)
+                                                .small()
+                                                .stroke(Stroke::NONE),
+                                        );
 
-                                                if response
-                                                    .clone()
-                                                    .on_hover_text("Remove prompt")
-                                                    .clicked()
-                                                {
-                                                    on_remove();
-                                                };
+                                        if response.clone().on_hover_text("Remove prompt").clicked()
+                                        {
+                                            action = Some(Action::OpenRemovePromptDialog(idx));
+                                        }
+                                    });
 
-                                                response
-                                            },
-                                        )
-                                        .inner;
-
-                                    label_response.union(button_response)
+                                    label_response
                                 })
                                 .inner
                             })
@@ -164,15 +147,17 @@ impl Prompt {
             .on_hover_cursor(egui::CursorIcon::PointingHand);
 
         if response.clicked() {
-            on_click();
+            action = Some(Action::SelectPrompt(idx));
         }
+
+        action
     }
 
     pub fn show_main_panel(
         &mut self,
         ui: &mut egui::Ui,
         local_model: &LocalModel,
-        covered: bool,
+        is_modal_shown: bool,
         rt: &runtime::Runtime,
         ollama_client: &OllamaClient,
         commonmark_cache: &mut CommonMarkCache,
@@ -193,7 +178,7 @@ impl Prompt {
         ui.separator();
 
         if !self.is_generating()
-            && !covered
+            && !is_modal_shown
             && !self.new_input.is_empty()
             && ui.input(|i| i.key_pressed(Key::Enter) && i.modifiers.is_none())
         {
@@ -209,7 +194,7 @@ impl Prompt {
 
     fn show_prompt_history(&self, ui: &mut egui::Ui, commonmark_cache: &mut CommonMarkCache) {
         ScrollArea::vertical().show(ui, |ui| {
-            for response in self.history.iter() {
+            for prompt_response in self.history.iter() {
                 ui.add_space(3.0);
                 ui.with_layout(
                     Layout::left_to_right(egui::Align::TOP)
@@ -227,7 +212,7 @@ impl Prompt {
                                     |ui| {
                                         ui.horizontal(|ui| {
                                             ui.label("🖳");
-                                            ui.label(&response.local_model_name);
+                                            ui.label(&prompt_response.local_model_name);
                                         });
 
                                         ui.add_space(6.0);
@@ -240,14 +225,14 @@ impl Prompt {
                                             .fill(ui.style().visuals.faint_bg_color)
                                             .show(ui, |ui| {
                                                 ui.add(egui::Label::wrap(Label::new(
-                                                    &response.input,
+                                                    &prompt_response.input,
                                                 )));
                                             });
 
                                         CommonMarkViewer::new().show(
                                             ui,
                                             commonmark_cache,
-                                            &response.output,
+                                            &prompt_response.output,
                                         );
                                     },
                                 );
