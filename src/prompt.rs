@@ -113,10 +113,15 @@ impl Prompt {
                         } else {
                             ui.style().visuals.window_fill
                         };
+                        let stroke_style_color = if selected {
+                            Color32::ORANGE
+                        } else {
+                            ui.style().visuals.window_stroke.color
+                        };
 
                         Frame::group(ui.style())
                             .corner_radius(CornerRadius::same(6))
-                            .stroke(Stroke::new(2.0, ui.style().visuals.window_stroke.color))
+                            .stroke(Stroke::new(2.0, stroke_style_color))
                             .fill(fill_style)
                             .show(ui, |ui| {
                                 ui.horizontal(|ui| {
@@ -129,6 +134,13 @@ impl Prompt {
                                             |ui| {
                                                 let response = ui.add(
                                                     egui::Button::new("❌")
+                                                        .fill(Color32::TRANSPARENT)
+                                                        .small()
+                                                        .stroke(Stroke::NONE),
+                                                );
+
+                                                ui.add(
+                                                    egui::Button::new("\u{270f}")
                                                         .fill(Color32::TRANSPARENT)
                                                         .small()
                                                         .stroke(Stroke::NONE),
