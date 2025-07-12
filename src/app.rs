@@ -55,6 +55,10 @@ impl ViewState {
     pub fn select_prompt(&mut self, idx: usize) {
         self.main_panel = ViewMainPanelState::Prompt(idx);
     }
+
+    fn is_prompt_selected(&self, idx: usize) -> bool {
+        matches!(self.main_panel, ViewMainPanelState::Prompt(idx0) if idx0 == idx)
+    }
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Default)]
@@ -159,6 +163,11 @@ impl RepromptApp {
         ctx.set_zoom_factor(1.2);
     }
 
+    fn clean_new_prompt_input(&mut self) {
+        self.new_prompt_title.clear();
+        self.new_prompt_content.clear();
+    }
+
     fn handle_action(
         &mut self,
         action: Option<Action>,
@@ -175,8 +184,7 @@ impl RepromptApp {
                     self.view_state.close_modal();
                 }
                 Action::CancelPromptCreation => {
-                    self.new_prompt_title.clear();
-                    self.new_prompt_content.clear();
+                    self.clean_new_prompt_input();
 
                     add_prompt_modal.close();
                     self.view_state.close_modal();
@@ -190,8 +198,7 @@ impl RepromptApp {
                     );
                     self.prompts.push(prompt);
 
-                    self.new_prompt_title.clear();
-                    self.new_prompt_content.clear();
+                    self.clean_new_prompt_input();
 
                     add_prompt_modal.close();
                     self.view_state.close_modal();
@@ -378,7 +385,7 @@ impl RepromptApp {
 
         ScrollArea::vertical().show(ui, |ui| {
             for (idx, prompt) in self.prompts.iter().enumerate() {
-                let selected = self.is_prompt_selected(idx);
+                let selected = self.view_state.is_prompt_selected(idx);
 
                 ui.add_space(3.0);
 
@@ -518,10 +525,6 @@ impl RepromptApp {
         );
 
         action
-    }
-
-    fn is_prompt_selected(&self, idx: usize) -> bool {
-        matches!(self.view_state.main_panel, ViewMainPanelState::Prompt(idx0) if idx0 == idx)
     }
 
     fn create_add_prompt_modal(ctx: &egui::Context, width: f32) -> Modal {
