@@ -73,6 +73,7 @@ pub enum Action {
     CloseRemovePromptDialog,
     RemovePrompt(usize),
     SelectPrompt(usize),
+    SelectOllamaModel(LocalModel),
 }
 
 impl Default for RepromptApp {
@@ -148,7 +149,9 @@ impl RepromptApp {
                     add_prompt_modal.open();
                     self.view_state.modal = ViewModalState::AddPrompt;
                 }
-                Action::CloseAddPromptDialog => self.view_state.modal = ViewModalState::None,
+                Action::CloseAddPromptDialog => {
+                    self.view_state.modal = ViewModalState::None;
+                }
                 Action::CancelPromptCreation => {
                     self.new_prompt_title.clear();
                     self.new_prompt_content.clear();
@@ -184,6 +187,9 @@ impl RepromptApp {
                 }
                 Action::SelectPrompt(idx) => {
                     self.view_state.main_panel = ViewMainPanelState::Prompt(idx);
+                }
+                Action::SelectOllamaModel(local_model) => {
+                    self.ollama_models.selected = Some(local_model);
                 }
             }
         }
@@ -276,7 +282,7 @@ impl RepromptApp {
                 ui.horizontal_top(|ui| {
                     assign_if_some!(action, self.show_left_panel_create_protmp_button(ui));
 
-                    self.show_left_panel_model_selector(ui);
+                    assign_if_some!(action, self.show_left_panel_model_selector(ui))
                 });
 
                 ui.separator();
@@ -322,25 +328,23 @@ impl RepromptApp {
         action
     }
 
-    fn show_left_panel_model_selector(&mut self, ui: &mut egui::Ui) {
-        if let Some(selected) = &self.ollama_models.selected {
-            let mut clicked = None;
+    fn show_left_panel_model_selector(&mut self, ui: &mut egui::Ui) -> Option<Action> {
+        let mut action = None;
 
+        if let Some(selected) = &self.ollama_models.selected {
             egui::ComboBox::from_id_salt("left_panel_models_selector")
                 .selected_text(&selected.name)
                 .show_ui(ui, |ui| {
                     for model in &self.ollama_models.available {
                         let checked = selected.name == model.name;
                         if ui.selectable_label(checked, &model.name).clicked() {
-                            clicked = Some(model.clone());
+                            action = Some(Action::SelectOllamaModel(model.clone()));
                         }
                     }
                 });
-
-            if let Some(clicked) = clicked {
-                self.ollama_models.selected = Some(clicked);
-            }
         }
+
+        action
     }
 
     fn show_left_panel_prompts(
