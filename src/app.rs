@@ -16,19 +16,14 @@ pub struct RepromptApp {
     prompts: Vec<Prompt>,
     view_state: ViewState,
     ollama_models: OllamaModels,
-
     #[serde(skip)]
     new_prompt_title: String,
-
     #[serde(skip)]
     new_prompt_content: String,
-
     #[serde(skip)]
     tokio_runtime: runtime::Runtime,
-
     #[serde(skip)]
     ollama_client: OllamaClient,
-
     #[serde(skip)]
     commonmark_cache: CommonMarkCache,
 }
@@ -377,7 +372,7 @@ impl RepromptApp {
             remove_prompt_modal.show(|ui| {
                 assign_if_some!(
                     action,
-                    self.show_remove_prompt_modal(ui, &remove_prompt_modal)
+                    self.show_remove_prompt_modal(ui, remove_prompt_modal)
                 );
             });
         });

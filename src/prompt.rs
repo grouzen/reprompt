@@ -127,11 +127,8 @@ impl Prompt {
                                         if response.clone().on_hover_text("Remove prompt").clicked()
                                         {
                                             action = Some(Action::OpenRemovePromptDialog(idx));
-                                        };
-
-                                        response
-                                    })
-                                    .inner;
+                                        }
+                                    });
 
                                     label_response
                                 })
