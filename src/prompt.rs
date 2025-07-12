@@ -24,25 +24,6 @@ pub struct Prompt {
     state: PromptState,
 }
 
-type PromptAskFlower = CompactFlower<String, String, String>;
-
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
-#[serde(default)]
-struct PromptResponse {
-    input: String,
-    output: String,
-    local_model_name: String,
-    #[serde(skip)]
-    requested_at: Instant,
-}
-
-#[derive(Default)]
-enum PromptState {
-    #[default]
-    Idle,
-    Generating,
-}
-
 impl Default for Prompt {
     fn default() -> Self {
         Self {
@@ -56,6 +37,18 @@ impl Default for Prompt {
     }
 }
 
+type PromptAskFlower = CompactFlower<String, String, String>;
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+#[serde(default)]
+struct PromptResponse {
+    input: String,
+    output: String,
+    local_model_name: String,
+    #[serde(skip)]
+    requested_at: Instant,
+}
+
 impl Default for PromptResponse {
     fn default() -> Self {
         Self {
@@ -65,6 +58,13 @@ impl Default for PromptResponse {
             requested_at: Instant::now(),
         }
     }
+}
+
+#[derive(Default)]
+enum PromptState {
+    #[default]
+    Idle,
+    Generating,
 }
 
 impl PromptResponse {

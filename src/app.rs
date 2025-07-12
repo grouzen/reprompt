@@ -28,11 +28,44 @@ pub struct RepromptApp {
     commonmark_cache: CommonMarkCache,
 }
 
+impl Default for RepromptApp {
+    fn default() -> Self {
+        Self {
+            prompts: Vec::new(),
+            new_prompt_title: String::with_capacity(256),
+            new_prompt_content: String::with_capacity(1024),
+            view_state: Default::default(),
+            tokio_runtime: tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+                .unwrap(),
+            ollama_client: OllamaClient::new(Ollama::default()),
+            ollama_models: Default::default(),
+            commonmark_cache: CommonMarkCache::default(),
+        }
+    }
+}
+
 #[derive(serde::Serialize, serde::Deserialize, Default)]
 #[serde(default)]
 struct ViewState {
     modal: ViewModalState,
     main_panel: ViewMainPanelState,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Default)]
+enum ViewModalState {
+    #[default]
+    None,
+    AddPrompt,
+    RemovePrompt(usize),
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Default)]
+enum ViewMainPanelState {
+    #[default]
+    MixedHistory,
+    Prompt(usize),
 }
 
 impl ViewState {
@@ -61,21 +94,6 @@ impl ViewState {
     }
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Default)]
-enum ViewModalState {
-    #[default]
-    None,
-    AddPrompt,
-    RemovePrompt(usize),
-}
-
-#[derive(serde::Serialize, serde::Deserialize, Default)]
-enum ViewMainPanelState {
-    #[default]
-    MixedHistory,
-    Prompt(usize),
-}
-
 #[derive(serde::Serialize, serde::Deserialize)]
 #[serde(default)]
 struct OllamaModels {
@@ -84,6 +102,16 @@ struct OllamaModels {
     available: Vec<LocalModel>,
     #[serde(skip)]
     load_flower: LoadLocalModelsFlower,
+}
+
+impl Default for OllamaModels {
+    fn default() -> Self {
+        Self {
+            selected: Default::default(),
+            available: Default::default(),
+            load_flower: LoadLocalModelsFlower::new(1),
+        }
+    }
 }
 
 type LoadLocalModelsFlower =
@@ -100,34 +128,6 @@ pub enum Action {
     RemovePrompt(usize),
     SelectPrompt(usize),
     SelectOllamaModel(LocalModel),
-}
-
-impl Default for RepromptApp {
-    fn default() -> Self {
-        Self {
-            prompts: Vec::new(),
-            new_prompt_title: String::with_capacity(256),
-            new_prompt_content: String::with_capacity(1024),
-            view_state: Default::default(),
-            tokio_runtime: tokio::runtime::Builder::new_multi_thread()
-                .enable_all()
-                .build()
-                .unwrap(),
-            ollama_client: OllamaClient::new(Ollama::default()),
-            ollama_models: Default::default(),
-            commonmark_cache: CommonMarkCache::default(),
-        }
-    }
-}
-
-impl Default for OllamaModels {
-    fn default() -> Self {
-        Self {
-            selected: Default::default(),
-            available: Default::default(),
-            load_flower: LoadLocalModelsFlower::new(1),
-        }
-    }
 }
 
 impl eframe::App for RepromptApp {
