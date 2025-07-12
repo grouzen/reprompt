@@ -136,23 +136,20 @@ impl RepromptApp {
 
             match ollama_client.list_models().await {
                 Ok(response) => {
-                    let maybe_selected = match response.first() {
-                        Some(default) => match current_selected {
-                            Some(selected)
-                                if !response
-                                    .iter()
-                                    .map(|m| &m.name)
-                                    .cloned()
-                                    .collect::<Vec<String>>()
-                                    .contains(&selected.name) =>
-                            {
-                                Some(default.clone())
-                            }
-                            None => Some(default.clone()),
-                            _ => None,
-                        },
+                    let maybe_selected = response.first().and_then(|default| match current_selected {
+                        Some(selected)
+                            if !response
+                                .iter()
+                                .map(|m| &m.name)
+                                .cloned()
+                                .collect::<Vec<String>>()
+                                .contains(&selected.name) =>
+                        {
+                            Some(default.clone())
+                        }
+                        None => Some(default.clone()),
                         _ => None,
-                    };
+                    });
 
                     handle.success((response, maybe_selected))
                 }
