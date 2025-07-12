@@ -1,4 +1,4 @@
-use egui::{Button, Color32, Id, Layout, ScrollArea, Stroke, Ui, UiBuilder, WidgetText};
+use egui::{Button, Color32, Layout, ScrollArea, Stroke, WidgetText};
 use egui_commonmark::CommonMarkCache;
 use egui_modal::{Icon, Modal, ModalStyle};
 use egui_theme_switch::global_theme_switch;
@@ -105,16 +105,10 @@ impl Default for OllamaModels {
 
 impl eframe::App for RepromptApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        let mut ui = Ui::new(
-            ctx.clone(),
-            Id::new((ctx.viewport_id(), "root")),
-            UiBuilder::new(),
-        );
-
         let add_prompt_modal =
-            Self::create_add_prompt_modal(&mut ui, ctx.available_rect().width() * 0.5);
+            Self::create_add_prompt_modal(ctx, ctx.available_rect().width() * 0.5);
         let remove_prompt_modal =
-            Modal::new(ui.ctx(), "remove_prompt_modal").with_close_on_outside_click(true);
+            Modal::new(ctx, "remove_prompt_modal").with_close_on_outside_click(true);
 
         let action = self.show(ctx, &add_prompt_modal, &remove_prompt_modal);
 
@@ -505,13 +499,13 @@ impl RepromptApp {
         matches!(self.view_state.main_panel, ViewMainPanelState::Prompt(idx0) if idx0 == idx)
     }
 
-    fn create_add_prompt_modal(ui: &mut egui::Ui, width: f32) -> Modal {
+    fn create_add_prompt_modal(ctx: &egui::Context, width: f32) -> Modal {
         let style = ModalStyle {
             default_width: Some(width),
             ..Default::default()
         };
 
-        Modal::new(ui.ctx(), "add_prompt_modal")
+        Modal::new(ctx, "add_prompt_modal")
             .with_close_on_outside_click(true)
             .with_style(&style)
     }
