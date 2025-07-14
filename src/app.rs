@@ -14,12 +14,8 @@ pub const TITLE: &str = "Reprompt";
 #[serde(default)]
 pub struct RepromptApp {
     prompts: Vec<Prompt>,
-    view_state: ViewState,
+    view: View,
     ollama_models: OllamaModels,
-    #[serde(skip)]
-    new_prompt_title: String,
-    #[serde(skip)]
-    new_prompt_content: String,
     #[serde(skip)]
     tokio_runtime: runtime::Runtime,
     #[serde(skip)]
@@ -32,9 +28,7 @@ impl Default for RepromptApp {
     fn default() -> Self {
         Self {
             prompts: Vec::new(),
-            new_prompt_title: String::with_capacity(256),
-            new_prompt_content: String::with_capacity(1024),
-            view_state: Default::default(),
+            view: Default::default(),
             tokio_runtime: tokio::runtime::Builder::new_multi_thread()
                 .enable_all()
                 .build()
@@ -48,49 +42,100 @@ impl Default for RepromptApp {
 
 #[derive(serde::Serialize, serde::Deserialize, Default)]
 #[serde(default)]
-struct ViewState {
-    modal: ViewModalState,
-    main_panel: ViewMainPanelState,
+struct View {
+    modal: ViewModal,
+    main_panel: ViewMainPanel,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Default)]
-enum ViewModalState {
+enum ViewModal {
     #[default]
     None,
-    AddPrompt,
+    AddPrompt {
+        title: String,
+        content: String,
+    },
     RemovePrompt(usize),
+    EditPrompt {
+        idx: usize,
+        title: String,
+        content: String,
+    },
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Default)]
-enum ViewMainPanelState {
+enum ViewMainPanel {
     #[default]
-    MixedHistory,
+    Welcome,
     Prompt(usize),
 }
 
-impl ViewState {
+impl View {
     pub fn is_modal_shown(&self) -> bool {
-        !matches!(self.modal, ViewModalState::None)
+        !matches!(self.modal, ViewModal::None)
     }
 
     pub fn close_modal(&mut self) {
-        self.modal = ViewModalState::None;
+        self.modal = ViewModal::None;
     }
 
     pub fn open_add_prompt_modal(&mut self) {
-        self.modal = ViewModalState::AddPrompt;
+        self.modal = ViewModal::AddPrompt {
+            title: String::with_capacity(256),
+            content: String::with_capacity(1024),
+        };
+    }
+
+    pub fn get_add_prompt_modal_data_mut(&mut self) -> Option<(&mut String, &mut String)> {
+        match &mut self.modal {
+            ViewModal::AddPrompt { title, content } => Some((title, content)),
+            _ => None,
+        }
+    }
+
+    pub fn get_add_prompt_modal_data(&self) -> Option<(&String, &String)> {
+        match &self.modal {
+            ViewModal::AddPrompt { title, content } => Some((title, content)),
+            _ => None,
+        }
     }
 
     pub fn open_remove_prompt_modal(&mut self, idx: usize) {
-        self.modal = ViewModalState::RemovePrompt(idx);
+        self.modal = ViewModal::RemovePrompt(idx);
+    }
+
+    pub fn open_edit_prompt_modal(&mut self, idx: usize, prompt: &Prompt) {
+        self.modal = ViewModal::EditPrompt {
+            idx,
+            title: prompt.title.clone(),
+            content: prompt.content.clone(),
+        };
+    }
+
+    pub fn get_edit_prompt_modal_data_mut(&mut self) -> Option<(&mut String, &mut String)> {
+        match &mut self.modal {
+            ViewModal::EditPrompt { title, content, .. } => Some((title, content)),
+            _ => None,
+        }
+    }
+
+    pub fn get_edit_prompt_modal_data(&self) -> Option<(usize, &String, &String)> {
+        match &self.modal {
+            ViewModal::EditPrompt {
+                idx,
+                title,
+                content,
+            } => Some((*idx, title, content)),
+            _ => None,
+        }
     }
 
     pub fn select_prompt(&mut self, idx: usize) {
-        self.main_panel = ViewMainPanelState::Prompt(idx);
+        self.main_panel = ViewMainPanel::Prompt(idx);
     }
 
     fn is_prompt_selected(&self, idx: usize) -> bool {
-        matches!(self.main_panel, ViewMainPanelState::Prompt(idx0) if idx0 == idx)
+        matches!(self.main_panel, ViewMainPanel::Prompt(idx0) if idx0 == idx)
     }
 }
 
@@ -121,25 +166,46 @@ type LoadLocalModelsFlower =
 pub enum Action {
     OpenAddPromptDialog,
     CloseAddPromptDialog,
-    CancelPromptCreation,
+    CancelPromptModification,
     CreatePrompt,
     OpenRemovePromptDialog(usize),
     CloseRemovePromptDialog,
     RemovePrompt(usize),
+    OpenEditPromptDialog(usize),
+    CloseEditPromptDialog,
+    EditPrompt,
     SelectPrompt(usize),
     SelectOllamaModel(LocalModel),
 }
 
 impl eframe::App for RepromptApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        let add_prompt_modal =
-            Self::create_add_prompt_modal(ctx, ctx.available_rect().width() * 0.5);
+        let add_prompt_modal = Self::create_modify_prompt_modal(
+            ctx,
+            "add_prompt_modal".to_string(),
+            ctx.available_rect().width() * 0.5,
+        );
+        let edit_prompt_modal = Self::create_modify_prompt_modal(
+            ctx,
+            "edit_prompt_modal".to_string(),
+            ctx.available_rect().width() * 0.5,
+        );
         let remove_prompt_modal =
             Modal::new(ctx, "remove_prompt_modal").with_close_on_outside_click(true);
 
-        let action = self.show(ctx, &add_prompt_modal, &remove_prompt_modal);
+        let action = self.show(
+            ctx,
+            &add_prompt_modal,
+            &remove_prompt_modal,
+            &edit_prompt_modal,
+        );
 
-        self.handle_action(action, &add_prompt_modal, &remove_prompt_modal);
+        self.handle_action(
+            action,
+            &add_prompt_modal,
+            &remove_prompt_modal,
+            &edit_prompt_modal,
+        );
     }
 
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
@@ -163,9 +229,22 @@ impl RepromptApp {
         ctx.set_zoom_factor(1.2);
     }
 
-    fn clean_new_prompt_input(&mut self) {
-        self.new_prompt_title.clear();
-        self.new_prompt_content.clear();
+    fn remove_prompt(&mut self, idx: usize) {
+        self.prompts.remove(idx);
+    }
+
+    fn add_prompt(&mut self, title: String, content: String) {
+        let id = self.prompts.len();
+        let prompt = Prompt::new(title, content, id);
+
+        self.prompts.push(prompt);
+    }
+
+    fn edit_prompt(&mut self, idx: usize, title: String, content: String) {
+        if let Some(prompt) = self.prompts.get_mut(idx) {
+            prompt.title = title;
+            prompt.content = content;
+        }
     }
 
     fn handle_action(
@@ -173,49 +252,60 @@ impl RepromptApp {
         action: Option<Action>,
         add_prompt_modal: &Modal,
         remove_prompt_modal: &Modal,
+        edit_prompt_modal: &Modal,
     ) {
         if let Some(action) = action {
             match action {
                 Action::OpenAddPromptDialog => {
                     add_prompt_modal.open();
-                    self.view_state.open_add_prompt_modal();
+                    self.view.open_add_prompt_modal();
                 }
                 Action::CloseAddPromptDialog => {
-                    self.view_state.close_modal();
+                    self.view.close_modal();
                 }
-                Action::CancelPromptCreation => {
-                    self.clean_new_prompt_input();
-
+                Action::CancelPromptModification => {
                     add_prompt_modal.close();
-                    self.view_state.close_modal();
+                    edit_prompt_modal.close();
+                    self.view.close_modal();
                 }
                 Action::CreatePrompt => {
-                    let id = self.prompts.len();
-                    let prompt = Prompt::new(
-                        self.new_prompt_title.clone(),
-                        self.new_prompt_content.clone(),
-                        id,
-                    );
-                    self.prompts.push(prompt);
+                    if let Some((title, content)) = self.view.get_add_prompt_modal_data() {
+                        self.add_prompt(title.clone(), content.clone());
 
-                    self.clean_new_prompt_input();
-
-                    add_prompt_modal.close();
-                    self.view_state.close_modal();
+                        add_prompt_modal.close();
+                        self.view.close_modal();
+                    }
                 }
                 Action::OpenRemovePromptDialog(idx) => {
                     remove_prompt_modal.open();
-                    self.view_state.open_remove_prompt_modal(idx);
+                    self.view.open_remove_prompt_modal(idx);
                 }
                 Action::CloseRemovePromptDialog => {
-                    self.view_state.close_modal();
+                    self.view.close_modal();
                 }
                 Action::RemovePrompt(idx) => {
-                    self.view_state.close_modal();
-                    self.prompts.remove(idx);
+                    self.view.close_modal();
+                    self.remove_prompt(idx);
+                }
+                Action::OpenEditPromptDialog(idx) => {
+                    if let Some(prompt) = self.prompts.get(idx) {
+                        edit_prompt_modal.open();
+                        self.view.open_edit_prompt_modal(idx, prompt);
+                    }
+                }
+                Action::CloseEditPromptDialog => {
+                    self.view.close_modal();
+                }
+                Action::EditPrompt => {
+                    if let Some((idx, title, content)) = self.view.get_edit_prompt_modal_data() {
+                        self.edit_prompt(idx, title.clone(), content.clone());
+
+                        edit_prompt_modal.close();
+                        self.view.close_modal();
+                    }
                 }
                 Action::SelectPrompt(idx) => {
-                    self.view_state.select_prompt(idx);
+                    self.view.select_prompt(idx);
                 }
                 Action::SelectOllamaModel(local_model) => {
                     self.ollama_models.selected = Some(local_model);
@@ -280,8 +370,14 @@ impl RepromptApp {
         ctx: &egui::Context,
         add_prompt_modal: &Modal,
         remove_prompt_modal: &Modal,
+        edit_prompt_modal: &Modal,
     ) -> Option<Action> {
-        let action = self.show_left_panel(ctx, add_prompt_modal, remove_prompt_modal);
+        let action = self.show_left_panel(
+            ctx,
+            add_prompt_modal,
+            remove_prompt_modal,
+            edit_prompt_modal,
+        );
 
         self.show_main_panel(ctx);
 
@@ -297,6 +393,7 @@ impl RepromptApp {
         ctx: &egui::Context,
         add_prompt_modal: &Modal,
         remove_prompt_modal: &Modal,
+        edit_prompt_modal: &Modal,
     ) -> Option<Action> {
         let (max_width, min_width) = Self::get_left_panel_width(ctx);
         let mut action = None;
@@ -318,7 +415,7 @@ impl RepromptApp {
 
                 assign_if_some!(
                     action,
-                    self.show_left_panel_prompts(ui, remove_prompt_modal)
+                    self.show_left_panel_prompts(ui, remove_prompt_modal, edit_prompt_modal)
                 );
 
                 ui.with_layout(Layout::bottom_up(egui::Align::Min), |ui| {
@@ -380,12 +477,13 @@ impl RepromptApp {
         &mut self,
         ui: &mut egui::Ui,
         remove_prompt_modal: &Modal,
+        edit_prompt_modal: &Modal,
     ) -> Option<Action> {
         let mut action = None;
 
         ScrollArea::vertical().show(ui, |ui| {
             for (idx, prompt) in self.prompts.iter().enumerate() {
-                let selected = self.view_state.is_prompt_selected(idx);
+                let selected = self.view.is_prompt_selected(idx);
 
                 ui.add_space(3.0);
 
@@ -394,6 +492,10 @@ impl RepromptApp {
                 if remove_prompt_modal.was_outside_clicked() {
                     action = Some(Action::CloseRemovePromptDialog);
                 }
+
+                if edit_prompt_modal.was_outside_clicked() {
+                    action = Some(Action::CloseEditPromptDialog);
+                }
             }
 
             remove_prompt_modal.show(|ui| {
@@ -401,6 +503,10 @@ impl RepromptApp {
                     action,
                     self.show_remove_prompt_modal(ui, remove_prompt_modal)
                 );
+            });
+
+            edit_prompt_modal.show(|ui| {
+                assign_if_some!(action, self.show_edit_prompt_modal(ui, edit_prompt_modal))
             });
         });
 
@@ -423,8 +529,8 @@ impl RepromptApp {
             }
 
             if modal.caution_button(ui, "Remove").clicked() {
-                match self.view_state.modal {
-                    ViewModalState::RemovePrompt(idx) => {
+                match self.view.modal {
+                    ViewModal::RemovePrompt(idx) => {
                         action = Some(Action::RemovePrompt(idx));
                     }
                     _ => {
@@ -451,23 +557,26 @@ impl RepromptApp {
             None => self.ollama_models.available.first(),
         };
 
-        egui::CentralPanel::default().show(ctx, |ui| match self.view_state.main_panel {
-            ViewMainPanelState::MixedHistory => {
-                ui.label("Reprompt!");
+        egui::CentralPanel::default().show(ctx, |ui| match self.view.main_panel {
+            ViewMainPanel::Welcome => {
+                ui.add_space(20.0);
+                ui.with_layout(Layout::top_down(egui::Align::Center), |ui| {
+                    ui.label("Welcome to the Reprompt app! Please select a model and add prompts to get started.");
+                });
             }
-            ViewMainPanelState::Prompt(idx) => {
+            ViewMainPanel::Prompt(idx) => {
                 if let Some(local_model) = local_model {
                     if let Some(prompt) = prompts.get_mut(idx) {
                         prompt.show_main_panel(
                             ui,
                             local_model,
-                            self.view_state.is_modal_shown(),
+                            self.view.is_modal_shown(),
                             tokio_runtime,
                             &self.ollama_client,
                             commonmark_cache,
                         );
 
-                        if prompt.is_generating() {
+                        if prompt.state.is_generating() {
                             ctx.request_repaint();
                         }
                     }
@@ -476,22 +585,25 @@ impl RepromptApp {
         });
     }
 
-    fn show_add_prompt_modal(
-        &mut self,
+    fn show_modify_prompt_modal(
         ui: &mut egui::Ui,
-        add_prompt_modal: &Modal,
+        modal: &Modal,
+        title: &mut String,
+        content: &mut String,
+        ok_action: Action,
+        ok_button_name: &str,
     ) -> Option<Action> {
         let mut action = None;
 
-        add_prompt_modal.frame(ui, |ui| {
-            let text_width = Self::get_add_prompt_modal_width(ui.ctx());
+        modal.frame(ui, |ui| {
+            let text_width = Self::get_modify_prompt_modal_width(ui.ctx());
 
-            egui::TextEdit::singleline(&mut self.new_prompt_title)
+            egui::TextEdit::singleline(title)
                 .hint_text("Write the title of your prompt here")
                 .desired_width(text_width)
                 .show(ui);
 
-            egui::TextEdit::multiline(&mut self.new_prompt_content)
+            egui::TextEdit::multiline(content)
                 .desired_rows(10)
                 .hint_text(
                     "Write the content of your prompt here. It will be prepended to all requests.",
@@ -507,19 +619,17 @@ impl RepromptApp {
                 let cancel_button =
                     Button::new(WidgetText::from("Cancel").color(Color32::from_rgb(242, 148, 148)))
                         .fill(Color32::from_rgb(87, 38, 34));
-                let create_button =
-                    Button::new(WidgetText::from("Create").color(Color32::from_rgb(141, 182, 242)))
-                        .fill(Color32::from_rgb(33, 54, 84));
+                let ok_button = Button::new(
+                    WidgetText::from(ok_button_name).color(Color32::from_rgb(141, 182, 242)),
+                )
+                .fill(Color32::from_rgb(33, 54, 84));
 
                 if ui.add(cancel_button).clicked() {
-                    action = Some(Action::CancelPromptCreation);
+                    action = Some(Action::CancelPromptModification);
                 }
 
-                if ui.add(create_button).clicked()
-                    && !self.new_prompt_title.is_empty()
-                    && !self.new_prompt_content.is_empty()
-                {
-                    action = Some(Action::CreatePrompt);
+                if ui.add(ok_button).clicked() && !title.is_empty() && !content.is_empty() {
+                    action = Some(ok_action);
                 };
             },
         );
@@ -527,18 +637,66 @@ impl RepromptApp {
         action
     }
 
-    fn create_add_prompt_modal(ctx: &egui::Context, width: f32) -> Modal {
+    fn show_add_prompt_modal(
+        &mut self,
+        ui: &mut egui::Ui,
+        add_prompt_modal: &Modal,
+    ) -> Option<Action> {
+        let mut action = None;
+
+        if let Some((title, content)) = self.view.get_add_prompt_modal_data_mut() {
+            assign_if_some!(
+                action,
+                Self::show_modify_prompt_modal(
+                    ui,
+                    add_prompt_modal,
+                    title,
+                    content,
+                    Action::CreatePrompt,
+                    "Create",
+                )
+            );
+        }
+
+        action
+    }
+
+    fn show_edit_prompt_modal(
+        &mut self,
+        ui: &mut egui::Ui,
+        edit_prompt_modal: &Modal,
+    ) -> Option<Action> {
+        let mut action = None;
+
+        if let Some((title, content)) = self.view.get_edit_prompt_modal_data_mut() {
+            assign_if_some!(
+                action,
+                Self::show_modify_prompt_modal(
+                    ui,
+                    edit_prompt_modal,
+                    title,
+                    content,
+                    Action::EditPrompt,
+                    "Edit",
+                )
+            );
+        }
+
+        action
+    }
+
+    fn create_modify_prompt_modal(ctx: &egui::Context, id: String, width: f32) -> Modal {
         let style = ModalStyle {
             default_width: Some(width),
             ..Default::default()
         };
 
-        Modal::new(ctx, "add_prompt_modal")
+        Modal::new(ctx, id)
             .with_close_on_outside_click(true)
             .with_style(&style)
     }
 
-    fn get_add_prompt_modal_width(ctx: &egui::Context) -> f32 {
+    fn get_modify_prompt_modal_width(ctx: &egui::Context) -> f32 {
         ctx.available_rect().width() * 0.5
     }
 
