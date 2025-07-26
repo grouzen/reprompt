@@ -215,7 +215,7 @@ impl Prompt {
     }
 
     fn show_prompt_history(&self, ui: &mut egui::Ui, commonmark_cache: &mut CommonMarkCache) {
-        ScrollArea::vertical().show(ui, |ui| {
+        ScrollArea::both().auto_shrink(false).show(ui, |ui| {
             for prompt_response in self.history.iter() {
                 ui.add_space(3.0);
                 ui.with_layout(
