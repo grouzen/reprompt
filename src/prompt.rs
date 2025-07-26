@@ -9,7 +9,7 @@ use flowync::{CompactFlower, error::Compact};
 use ollama_rs::models::LocalModel;
 use tokio::runtime;
 
-use crate::{app::Action, ollama::OllamaClient};
+use crate::{app::AppAction, ollama::OllamaClient};
 
 #[derive(serde::Serialize, serde::Deserialize)]
 #[serde(default)]
@@ -94,7 +94,16 @@ impl Prompt {
         }
     }
 
-    pub fn show_left_panel(&self, ui: &mut egui::Ui, selected: bool, idx: usize) -> Option<Action> {
+    pub fn remove_history(&mut self, history_idx: usize) {
+        self.history.remove(history_idx);
+    }
+
+    pub fn show_left_panel(
+        &self,
+        ui: &mut egui::Ui,
+        selected: bool,
+        idx: usize,
+    ) -> Option<AppAction> {
         let mut action = None;
 
         let response = ui.scope_builder(
@@ -144,11 +153,11 @@ impl Prompt {
 
                                         if remove_response.on_hover_text("Remove prompt").clicked()
                                         {
-                                            action = Some(Action::OpenRemovePromptDialog(idx));
+                                            action = Some(AppAction::OpenRemovePromptDialog(idx));
                                         }
 
                                         if edit_response.on_hover_text("Edit prompt").clicked() {
-                                            action = Some(Action::OpenEditPromptDialog(idx));
+                                            action = Some(AppAction::OpenEditPromptDialog(idx));
                                         }
                                     });
 
@@ -169,21 +178,23 @@ impl Prompt {
             .on_hover_cursor(egui::CursorIcon::PointingHand);
 
         if response.clicked() {
-            action = Some(Action::SelectPrompt(idx));
+            action = Some(AppAction::SelectPrompt(idx));
         }
 
         action
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn show_main_panel(
         &mut self,
         ui: &mut egui::Ui,
         local_model: &LocalModel,
         is_modal_shown: bool,
+        idx: usize,
         rt: &runtime::Runtime,
         ollama_client: &OllamaClient,
         commonmark_cache: &mut CommonMarkCache,
-    ) {
+    ) -> Option<AppAction> {
         let is_input_interactive = !self.state.is_generating();
 
         ui.with_layout(
@@ -211,12 +222,19 @@ impl Prompt {
             self.poll_ask_flower();
         }
 
-        self.show_prompt_history(ui, commonmark_cache);
+        self.show_prompt_history(ui, idx, commonmark_cache)
     }
 
-    fn show_prompt_history(&self, ui: &mut egui::Ui, commonmark_cache: &mut CommonMarkCache) {
+    fn show_prompt_history(
+        &self,
+        ui: &mut egui::Ui,
+        idx: usize,
+        commonmark_cache: &mut CommonMarkCache,
+    ) -> Option<AppAction> {
+        let mut action = None;
+
         ScrollArea::both().auto_shrink(false).show(ui, |ui| {
-            for prompt_response in self.history.iter() {
+            for (history_idx, prompt_response ) in self.history.iter().enumerate() {
                 ui.add_space(3.0);
                 ui.with_layout(
                     Layout::left_to_right(egui::Align::TOP)
@@ -235,6 +253,25 @@ impl Prompt {
                                         ui.horizontal(|ui| {
                                             ui.label("🖳");
                                             ui.label(&prompt_response.local_model_name);
+
+                                            ui.with_layout(
+                                                Layout::right_to_left(egui::Align::Min),
+                                                |ui| {
+                                                    let remove_response = ui.add(
+                                                        egui::Button::new("❌")
+                                                            .fill(Color32::TRANSPARENT)
+                                                            .small()
+                                                            .stroke(Stroke::NONE),
+                                                    );
+
+                                                    if remove_response
+                                                        .on_hover_text("Remove from prompt history")
+                                                        .clicked()
+                                                    {
+                                                        action = Some(AppAction::OpenRemovePromptHistoryDialog { idx, history_idx});
+                                                    }
+                                                },
+                                            );
                                         });
 
                                         ui.add_space(6.0);
@@ -263,6 +300,8 @@ impl Prompt {
                 );
             }
         });
+
+        action
     }
 
     fn generate_response(
