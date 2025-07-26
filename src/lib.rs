@@ -1,6 +1,7 @@
 pub mod app;
 pub mod ollama;
 pub mod prompt;
+pub mod view;
 
 #[macro_export]
 macro_rules! assign_if_some {
