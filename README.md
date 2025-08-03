@@ -79,6 +79,8 @@ sudo emerge -av app-misc/reprompt
 
 The project is written in Rust and uses the [egui](https://github.com/emilk/egui) library for the GUI. Contributions are welcome!
 
+See [ARCHITECTURE.md](ARCHITECTURE.md) file for more technical details.
+
 ## Gratitude
 
 I took inspiration from [Ellama](https://github.com/zeozeozeo/ellama) - Friendly interface to chat with an Ollama instance.
