@@ -92,6 +92,10 @@ pub enum AppAction {
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        let mut action = None;
+
+        assign_if_some!(action, self.handle_keyboard_input(ctx));
+
         let add_prompt_modal = View::create_modify_prompt_modal(
             ctx,
             "add_prompt_modal".to_string(),
@@ -108,13 +112,16 @@ impl eframe::App for App {
             Modal::new(ctx, "remove_prompt_history_modal").with_close_on_outside_click(true);
         let error_modal = Modal::new(ctx, "error_modal").with_close_on_outside_click(true);
 
-        let action = self.show(
-            ctx,
-            &add_prompt_modal,
-            &remove_prompt_modal,
-            &edit_prompt_modal,
-            &remove_prompt_history_modal,
-            &error_modal,
+        assign_if_some!(
+            action,
+            self.show(
+                ctx,
+                &add_prompt_modal,
+                &remove_prompt_modal,
+                &edit_prompt_modal,
+                &remove_prompt_history_modal,
+                &error_modal,
+            )
         );
 
         self.handle_action(
@@ -145,6 +152,28 @@ impl App {
         Self::set_scale(&cc.egui_ctx, app.ui_scale);
 
         app
+    }
+
+    fn handle_keyboard_input(&self, ctx: &egui::Context) -> Option<AppAction> {
+        let mut action = None;
+        ctx.input(|i| {
+            if i.modifiers.ctrl {
+                if i.key_pressed(egui::Key::Equals) || i.key_pressed(egui::Key::Plus) {
+                    // Ctrl+Plus: Increase scale by 0.1, clamped to max 2.5
+                    let new_scale = (self.ui_scale + 0.1).min(2.5);
+                    if new_scale != self.ui_scale {
+                        action = Some(AppAction::SetUIScale(new_scale));
+                    }
+                } else if i.key_pressed(egui::Key::Minus) {
+                    // Ctrl+Minus: Decrease scale by 0.1, clamped to min 1.0
+                    let new_scale = (self.ui_scale - 0.1).max(1.0);
+                    if new_scale != self.ui_scale {
+                        action = Some(AppAction::SetUIScale(new_scale));
+                    }
+                }
+            }
+        });
+        action
     }
 
     fn set_scale(ctx: &egui::Context, ui_scale: f32) {
@@ -428,6 +457,7 @@ impl App {
                                         .step_by(0.1)
                                         .show_value(false),
                                 )
+                                .on_hover_text("Use Ctrl- and Ctrl+ hotkeys")
                                 .changed()
                             {
                                 action = Some(AppAction::SetUIScale(scale));
