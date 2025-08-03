@@ -98,6 +98,19 @@ impl Prompt {
         self.history.remove(history_idx);
     }
 
+    pub fn regenerate_response(
+        &mut self,
+        history_idx: usize,
+        local_model: &LocalModel,
+        rt: &runtime::Runtime,
+        ollama_client: &OllamaClient,
+    ) {
+        if let Some(original_response) = self.history.get(history_idx) {
+            let input = original_response.input.clone();
+            self.generate_response(input, local_model, rt, ollama_client);
+        }
+    }
+
     pub fn show_left_panel(
         &self,
         ui: &mut egui::Ui,
@@ -264,11 +277,25 @@ impl Prompt {
                                                             .stroke(Stroke::NONE),
                                                     );
 
+                                                    let regenerate_response = ui.add(
+                                                        egui::Button::new("🔄")
+                                                            .fill(Color32::TRANSPARENT)
+                                                            .small()
+                                                            .stroke(Stroke::NONE),
+                                                    );
+
                                                     if remove_response
                                                         .on_hover_text("Remove from prompt history")
                                                         .clicked()
                                                     {
                                                         action = Some(AppAction::OpenRemovePromptHistoryDialog { idx, history_idx});
+                                                    }
+
+                                                    if regenerate_response
+                                                        .on_hover_text("Regenerate with current model")
+                                                        .clicked()
+                                                    {
+                                                        action = Some(AppAction::RegenerateResponse { idx, history_idx });
                                                     }
                                                 },
                                             );
@@ -314,7 +341,7 @@ impl Prompt {
         self.state = PromptState::Generating;
 
         let response = PromptResponse::new(
-            self.new_input.clone(),
+            input.clone(),
             String::new(),
             local_model.name.clone(),
         );

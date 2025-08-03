@@ -79,6 +79,7 @@ pub enum AppAction {
     OpenEditPromptDialog(usize),
     OpenRemovePromptHistoryDialog { idx: usize, history_idx: usize },
     RemovePromptHistory { idx: usize, history_idx: usize },
+    RegenerateResponse { idx: usize, history_idx: usize },
     EditPrompt,
     SelectPrompt(usize),
     SelectOllamaModel(LocalModel),
@@ -214,6 +215,13 @@ impl App {
 
                     if let Some(prompt) = self.get_prompt_mut(idx) {
                         prompt.remove_history(history_idx);
+                    }
+                }
+                AppAction::RegenerateResponse { idx, history_idx } => {
+                    if let Some(selected_model) = self.ollama_models.selected.clone() {
+                        if let Some(prompt) = self.prompts.get_mut(idx) {
+                            prompt.regenerate_response(history_idx, &selected_model, &self.tokio_runtime, &self.ollama_client);
+                        }
                     }
                 }
                 AppAction::EditPrompt => {
