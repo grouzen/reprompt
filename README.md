@@ -1,6 +1,8 @@
 # Reprompt
 
-- :pencil: Ever stuck typing the same prompt over and over?  
+![Reprompt Logo](docs/logo/reprompt-logo-enhanced.svg)
+
+- :pencil: Ever stuck typing the same prompt over and over?
 - :computer: Reprompt is a user-friendly desktop application that simplifies the process of repeatedly asking questions to your local [Ollama](https://ollama.com/) model.  
 - :key: For people who prioritize data privacy and security.  
 - :microscope: Choose from any of your locally installed models, and ask away!  
