@@ -70,6 +70,8 @@ type LoadLocalModelsFlower =
 
 #[derive(Debug)]
 pub enum AppAction {
+    GeneratePromptResponse { idx: usize, input: String },
+    RegeneratePromptResponse { idx: usize, history_idx: usize },
     CloseDialog,
     OpenAddPromptDialog,
     CancelPromptModification,
@@ -171,6 +173,30 @@ impl App {
     ) {
         if let Some(action) = action {
             match action {
+                AppAction::GeneratePromptResponse { idx, input } => {
+                    if let Some(selected_model) = &self.ollama_models.selected {
+                        if let Some(prompt) = self.prompts.get_mut(idx) {
+                            prompt.generate_response(
+                                input,
+                                selected_model,
+                                &self.tokio_runtime,
+                                &self.ollama_client,
+                            );
+                        }
+                    }
+                }
+                AppAction::RegeneratePromptResponse { idx, history_idx } => {
+                    if let Some(selected_model) = &self.ollama_models.selected {
+                        if let Some(prompt) = self.prompts.get_mut(idx) {
+                            prompt.regenerate_response(
+                                history_idx,
+                                selected_model,
+                                &self.tokio_runtime,
+                                &self.ollama_client,
+                            );
+                        }
+                    }
+                }
                 AppAction::CloseDialog => {
                     self.view.close_modal();
                 }
@@ -454,17 +480,10 @@ impl App {
         let mut action = None;
 
         let Self {
-            tokio_runtime,
             commonmark_cache,
             prompts,
-            ollama_models,
             ..
         } = self;
-
-        let local_model = match &ollama_models.selected {
-            Some(model) => Some(model),
-            None => self.ollama_models.available.first(),
-        };
 
         egui::CentralPanel::default().show(ctx, |ui| match self.view.main_panel {
             ViewMainPanel::Welcome => {
@@ -474,30 +493,25 @@ impl App {
                 });
             }
             ViewMainPanel::Prompt(idx) => {
-                if let Some(local_model) = local_model {
-                    if let Some(prompt) = prompts.get_mut(idx) {
-                        assign_if_some!(action, prompt.show_main_panel(
-                            ui,
-                            local_model,
-                            self.view.is_modal_shown(),
-                            idx,
-                            tokio_runtime,
-                            &self.ollama_client,
-                            commonmark_cache,
-                        ));
+                if let Some(prompt) = prompts.get_mut(idx) {
+                    assign_if_some!(action, prompt.show_main_panel(
+                        ui,
+                        self.view.is_modal_shown(),
+                        idx,
+                        commonmark_cache,
+                    ));
 
-                        if remove_prompt_history_modal.was_outside_clicked() {
-                            action = Some(AppAction::CloseDialog);
-                        }
+                    if remove_prompt_history_modal.was_outside_clicked() {
+                        action = Some(AppAction::CloseDialog);
+                    }
 
-                        remove_prompt_history_modal.show(|ui| {
-                            assign_if_some!(action, self.view.show_remove_prompt_history_modal(ui, remove_prompt_history_modal));
-                        });
+                    remove_prompt_history_modal.show(|ui| {
+                        assign_if_some!(action, self.view.show_remove_prompt_history_modal(ui, remove_prompt_history_modal));
+                    });
 
 
-                        if prompt.state.is_generating() {
-                            ctx.request_repaint();
-                        }
+                    if prompt.state.is_generating() {
+                        ctx.request_repaint();
                     }
                 }
             }
