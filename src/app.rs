@@ -84,6 +84,7 @@ pub enum AppAction {
     EditPrompt,
     SelectPrompt(usize),
     SelectOllamaModel(LocalModel),
+    ShowErrorDialog { title: String, message: String },
 }
 
 impl eframe::App for App {
@@ -102,6 +103,7 @@ impl eframe::App for App {
             Modal::new(ctx, "remove_prompt_modal").with_close_on_outside_click(true);
         let remove_prompt_history_modal =
             Modal::new(ctx, "remove_prompt_history_modal").with_close_on_outside_click(true);
+        let error_modal = Modal::new(ctx, "error_modal").with_close_on_outside_click(true);
 
         let action = self.show(
             ctx,
@@ -109,6 +111,7 @@ impl eframe::App for App {
             &remove_prompt_modal,
             &edit_prompt_modal,
             &remove_prompt_history_modal,
+            &error_modal,
         );
 
         self.handle_action(
@@ -117,6 +120,7 @@ impl eframe::App for App {
             &remove_prompt_modal,
             &edit_prompt_modal,
             &remove_prompt_history_modal,
+            &error_modal,
         );
     }
 
@@ -170,6 +174,7 @@ impl App {
         remove_prompt_modal: &Modal,
         edit_prompt_modal: &Modal,
         remove_prompt_history_modal: &Modal,
+        error_modal: &Modal,
     ) {
         if let Some(action) = action {
             match action {
@@ -256,6 +261,10 @@ impl App {
                 AppAction::SelectOllamaModel(local_model) => {
                     self.ollama_models.selected = Some(local_model);
                 }
+                AppAction::ShowErrorDialog { title, message } => {
+                    error_modal.open();
+                    self.view.open_error_modal(title, message);
+                }
             }
         }
     }
@@ -293,7 +302,9 @@ impl App {
         });
     }
 
-    fn poll_load_flower(&mut self) {
+    fn poll_load_flower(&mut self) -> Option<AppAction> {
+        let mut action = None;
+
         self.ollama_models
             .load_flower
             .extract(|models| {
@@ -306,9 +317,21 @@ impl App {
                         self.ollama_models.selected = Some(selected);
                     }
                 }
-                Err(Compact::Suppose(_)) => (),
-                Err(Compact::Panicked(_)) => (),
+                Err(Compact::Suppose(e)) => {
+                    action = Some(AppAction::ShowErrorDialog {
+                        title: "Model Loading Error".to_string(),
+                        message: format!("Unable to load available models from Ollama. Please ensure Ollama is running and accessible.\n\nError: {e}"),
+                    });
+                }
+                Err(Compact::Panicked(e)) => {
+                    action = Some(AppAction::ShowErrorDialog {
+                        title: "Model Loading Error".to_string(),
+                        message: format!("An unexpected error occurred while loading models.\n\nError: {e}"),
+                    });
+                }
             });
+
+        action
     }
 
     fn show(
@@ -318,6 +341,7 @@ impl App {
         remove_prompt_modal: &Modal,
         edit_prompt_modal: &Modal,
         remove_prompt_history_modal: &Modal,
+        error_modal: &Modal,
     ) -> Option<AppAction> {
         let mut action = None;
 
@@ -328,6 +352,7 @@ impl App {
                 add_prompt_modal,
                 remove_prompt_modal,
                 edit_prompt_modal,
+                error_modal,
             )
         );
 
@@ -337,7 +362,7 @@ impl App {
         );
 
         if self.ollama_models.load_flower.is_active() {
-            self.poll_load_flower();
+            assign_if_some!(action, self.poll_load_flower());
         }
 
         action
@@ -349,6 +374,7 @@ impl App {
         add_prompt_modal: &Modal,
         remove_prompt_modal: &Modal,
         edit_prompt_modal: &Modal,
+        error_modal: &Modal,
     ) -> Option<AppAction> {
         let (max_width, min_width) = Self::get_left_panel_width(ctx);
         let mut action = None;
@@ -378,7 +404,7 @@ impl App {
                     global_theme_switch(ui);
                 });
 
-                if add_prompt_modal.was_outside_clicked() {
+                if add_prompt_modal.was_outside_clicked() || error_modal.was_outside_clicked() {
                     action = Some(AppAction::CloseDialog);
                 }
 
@@ -387,6 +413,10 @@ impl App {
                         action,
                         self.view.show_add_prompt_modal(ui, add_prompt_modal)
                     );
+                });
+
+                error_modal.show(|ui| {
+                    assign_if_some!(action, self.view.show_error_modal(ui, error_modal));
                 });
             });
 

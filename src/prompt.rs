@@ -9,7 +9,7 @@ use flowync::{CompactFlower, error::Compact};
 use ollama_rs::models::LocalModel;
 use tokio::runtime;
 
-use crate::{app::AppAction, ollama::OllamaClient};
+use crate::{app::AppAction, assign_if_some, ollama::OllamaClient};
 
 #[derive(serde::Serialize, serde::Deserialize)]
 #[serde(default)]
@@ -191,6 +191,7 @@ impl Prompt {
         idx: usize,
         commonmark_cache: &mut CommonMarkCache,
     ) -> Option<AppAction> {
+        let mut action = None;
         let is_input_interactive = !self.state.is_generating();
 
         ui.with_layout(
@@ -211,17 +212,19 @@ impl Prompt {
             && !self.new_input.is_empty()
             && ui.input(|i| i.key_pressed(Key::Enter) && i.modifiers.is_none())
         {
-            return Some(AppAction::GeneratePromptResponse {
+            action = Some(AppAction::GeneratePromptResponse {
                 idx,
                 input: self.new_input.clone(),
             });
         }
 
         if self.ask_flower.is_active() {
-            self.poll_ask_flower();
+            assign_if_some!(action, self.poll_ask_flower());
         }
 
-        self.show_prompt_history(ui, idx, commonmark_cache)
+        assign_if_some!(action, self.show_prompt_history(ui, idx, commonmark_cache));
+
+        action
     }
 
     fn show_prompt_history(
@@ -370,7 +373,9 @@ impl Prompt {
         });
     }
 
-    fn poll_ask_flower(&mut self) {
+    fn poll_ask_flower(&mut self) -> Option<AppAction> {
+        let mut action = None;
+
         self.ask_flower
             .extract(|output| {
                 self.history.get_mut(0).unwrap().output = output;
@@ -381,16 +386,29 @@ impl Prompt {
                         self.history.get_mut(0).unwrap().output = output;
                     }
                     Err(Compact::Suppose(e)) => {
-                        self.history.get_mut(0).unwrap().output = e;
+                        // Remove the failed response from history
+                        self.history.pop_front();
+
+                        action = Some(AppAction::ShowErrorDialog {
+                            title: "Response Generation Error".to_string(),
+                            message: format!("Failed to generate response from Ollama. Please check your connection and try again.\n\nError: {e}"),
+                        });
                     }
                     Err(Compact::Panicked(e)) => {
-                        let message = format!("Tokio task panicked: {e}");
-                        self.history.get_mut(0).unwrap().output = message;
+                        // Remove the failed response from history
+                        self.history.pop_front();
+
+                        action = Some(AppAction::ShowErrorDialog {
+                            title: "Response Generation Error".to_string(),
+                            message: format!("An unexpected error occurred while generating the response.\n\nError: {e}"),
+                        });
                     }
                 }
 
                 self.state = PromptState::Idle;
                 self.new_input.clear();
             });
+
+        action
     }
 }
