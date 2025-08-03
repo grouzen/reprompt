@@ -28,6 +28,10 @@ enum ViewModal {
         idx: usize,
         history_idx: usize,
     },
+    ErrorDialog {
+        title: String,
+        message: String,
+    },
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Default)]
@@ -99,6 +103,10 @@ impl View {
 
     pub fn open_remove_prompt_history_modal(&mut self, idx: usize, history_idx: usize) {
         self.modal = ViewModal::RemovePromptHistory { idx, history_idx };
+    }
+
+    pub fn open_error_modal(&mut self, title: String, message: String) {
+        self.modal = ViewModal::ErrorDialog { title, message };
     }
 
     pub fn select_prompt(&mut self, idx: usize) {
@@ -269,6 +277,23 @@ impl View {
                 }
             }
         });
+
+        action
+    }
+
+    pub fn show_error_modal(&self, ui: &mut egui::Ui, modal: &Modal) -> Option<AppAction> {
+        let mut action = None;
+
+        if let ViewModal::ErrorDialog { title, message } = &self.modal {
+            modal.title(ui, title);
+            modal.body_and_icon(ui, message, Icon::Error);
+
+            modal.buttons(ui, |ui| {
+                if modal.button(ui, "OK").clicked() {
+                    action = Some(AppAction::CloseDialog);
+                }
+            });
+        }
 
         action
     }
