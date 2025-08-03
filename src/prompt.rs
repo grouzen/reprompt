@@ -98,19 +98,6 @@ impl Prompt {
         self.history.remove(history_idx);
     }
 
-    pub fn regenerate_response(
-        &mut self,
-        history_idx: usize,
-        local_model: &LocalModel,
-        rt: &runtime::Runtime,
-        ollama_client: &OllamaClient,
-    ) {
-        if let Some(original_response) = self.history.get(history_idx) {
-            let input = original_response.input.clone();
-            self.generate_response(input, local_model, rt, ollama_client);
-        }
-    }
-
     pub fn show_left_panel(
         &self,
         ui: &mut egui::Ui,
@@ -344,6 +331,19 @@ impl Prompt {
         self.history.push_front(response);
 
         self.ask_ollama(input, local_model, rt, ollama_client.clone());
+    }
+
+    pub fn regenerate_response(
+        &mut self,
+        history_idx: usize,
+        local_model: &LocalModel,
+        rt: &runtime::Runtime,
+        ollama_client: &OllamaClient,
+    ) {
+        if let Some(original_response) = self.history.get(history_idx) {
+            let input = original_response.input.clone();
+            self.generate_response(input, local_model, rt, ollama_client);
+        }
     }
 
     fn ask_ollama(
