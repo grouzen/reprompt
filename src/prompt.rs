@@ -276,7 +276,8 @@ impl Prompt {
                                                             .stroke(Stroke::NONE),
                                                     );
 
-                                                    let regenerate_response = ui.add(
+                                                    let regenerate_response = ui.add_enabled(
+                                                        !self.state.is_generating(),
                                                         egui::Button::new("🔄")
                                                             .fill(Color32::TRANSPARENT)
                                                             .small()
