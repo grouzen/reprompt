@@ -260,6 +260,25 @@ impl Prompt {
                                             ui.with_layout(
                                                 Layout::right_to_left(egui::Align::Min),
                                                 |ui| {
+                                                    let copy_response = ui.add(
+                                                        egui::Button::new("📋")
+                                                            .fill(Color32::TRANSPARENT)
+                                                            .small()
+                                                            .stroke(Stroke::NONE),
+                                                    );
+
+                                                    if copy_response
+                                                        .on_hover_text("Copy response")
+                                                        .clicked()
+                                                    {
+                                                        if let Err(e) = crate::copy_to_clipboard(&prompt_response.output) {
+                                                            action = Some(AppAction::ShowErrorDialog {
+                                                                title: "Copy Error".to_string(),
+                                                                message: format!("Failed to copy to clipboard: {}", e),
+                                                            });
+                                                        }
+                                                    }
+
                                                     let remove_response = ui.add_enabled(
                                                         !self.state.is_generating(),
                                                         egui::Button::new("❌")

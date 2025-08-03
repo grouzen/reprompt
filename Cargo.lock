@@ -2638,6 +2638,7 @@ name = "reprompt"
 version = "0.5.0"
 dependencies = [
  "anyhow",
+ "arboard",
  "eframe",
  "egui",
  "egui-modal",
