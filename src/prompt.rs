@@ -191,6 +191,7 @@ impl Prompt {
         idx: usize,
         commonmark_cache: &mut CommonMarkCache,
     ) -> Option<AppAction> {
+        let mut action = None;
         let is_input_interactive = !self.state.is_generating();
 
         ui.with_layout(
@@ -211,20 +212,18 @@ impl Prompt {
             && !self.new_input.is_empty()
             && ui.input(|i| i.key_pressed(Key::Enter) && i.modifiers.is_none())
         {
-            return Some(AppAction::GeneratePromptResponse {
+            action = Some(AppAction::GeneratePromptResponse {
                 idx,
                 input: self.new_input.clone(),
             });
         }
 
-        let mut action = None;
-        
         if self.ask_flower.is_active() {
             assign_if_some!(action, self.poll_ask_flower());
         }
 
         assign_if_some!(action, self.show_prompt_history(ui, idx, commonmark_cache));
-        
+
         action
     }
 
@@ -376,7 +375,7 @@ impl Prompt {
 
     fn poll_ask_flower(&mut self) -> Option<AppAction> {
         let mut action = None;
-        
+
         self.ask_flower
             .extract(|output| {
                 self.history.get_mut(0).unwrap().output = output;
@@ -389,6 +388,7 @@ impl Prompt {
                     Err(Compact::Suppose(e)) => {
                         // Remove the failed response from history
                         self.history.pop_front();
+
                         action = Some(AppAction::ShowErrorDialog {
                             title: "Response Generation Error".to_string(),
                             message: format!("Failed to generate response from Ollama. Please check your connection and try again.\n\nError: {e}"),
@@ -397,6 +397,7 @@ impl Prompt {
                     Err(Compact::Panicked(e)) => {
                         // Remove the failed response from history
                         self.history.pop_front();
+
                         action = Some(AppAction::ShowErrorDialog {
                             title: "Response Generation Error".to_string(),
                             message: format!("An unexpected error occurred while generating the response.\n\nError: {e}"),
@@ -407,8 +408,7 @@ impl Prompt {
                 self.state = PromptState::Idle;
                 self.new_input.clear();
             });
-            
+
         action
     }
 }
-

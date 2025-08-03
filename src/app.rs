@@ -103,8 +103,7 @@ impl eframe::App for App {
             Modal::new(ctx, "remove_prompt_modal").with_close_on_outside_click(true);
         let remove_prompt_history_modal =
             Modal::new(ctx, "remove_prompt_history_modal").with_close_on_outside_click(true);
-        let error_modal =
-            Modal::new(ctx, "error_modal").with_close_on_outside_click(true);
+        let error_modal = Modal::new(ctx, "error_modal").with_close_on_outside_click(true);
 
         let action = self.show(
             ctx,
@@ -305,7 +304,7 @@ impl App {
 
     fn poll_load_flower(&mut self) -> Option<AppAction> {
         let mut action = None;
-        
+
         self.ollama_models
             .load_flower
             .extract(|models| {
@@ -331,7 +330,7 @@ impl App {
                     });
                 }
             });
-            
+
         action
     }
 
@@ -417,10 +416,7 @@ impl App {
                 });
 
                 error_modal.show(|ui| {
-                    assign_if_some!(
-                        action,
-                        self.view.show_error_modal(ui, error_modal)
-                    );
+                    assign_if_some!(action, self.view.show_error_modal(ui, error_modal));
                 });
             });
 
