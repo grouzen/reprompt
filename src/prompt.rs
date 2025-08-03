@@ -137,7 +137,8 @@ impl Prompt {
                                         ui.add(egui::Label::wrap(egui::Label::new(&self.title)));
 
                                     ui.with_layout(Layout::right_to_left(egui::Align::Min), |ui| {
-                                        let remove_response = ui.add(
+                                        let remove_response = ui.add_enabled(
+                                            !self.state.is_generating(),
                                             egui::Button::new("❌")
                                                 .fill(Color32::TRANSPARENT)
                                                 .small()
@@ -259,7 +260,8 @@ impl Prompt {
                                             ui.with_layout(
                                                 Layout::right_to_left(egui::Align::Min),
                                                 |ui| {
-                                                    let remove_response = ui.add(
+                                                    let remove_response = ui.add_enabled(
+                                                        !self.state.is_generating(),
                                                         egui::Button::new("❌")
                                                             .fill(Color32::TRANSPARENT)
                                                             .small()
