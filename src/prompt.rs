@@ -276,6 +276,18 @@ impl Prompt {
                                                             .stroke(Stroke::NONE),
                                                     );
 
+                                                    if self.state.is_generating() && history_idx == 0
+                                                        && ui.add_enabled(
+                                                            true,
+                                                            egui::Button::new("⏹")
+                                                                .fill(Color32::TRANSPARENT)
+                                                                .small()
+                                                                .stroke(Stroke::NONE),
+                                                        ).on_hover_text("Stop generation")
+                                                        .clicked() {
+                                                            action = Some(AppAction::StopPromptGeneration(idx));
+                                                    }
+
                                                     if remove_response
                                                         .on_hover_text("Remove from prompt history")
                                                         .clicked()
