@@ -276,8 +276,8 @@ impl Prompt {
                                                             .stroke(Stroke::NONE),
                                                     );
 
-                                                    if self.state.is_generating() && history_idx == 0 {
-                                                        if ui.add_enabled(
+                                                    if self.state.is_generating() && history_idx == 0
+                                                        && ui.add_enabled(
                                                             true,
                                                             egui::Button::new("⏹")
                                                                 .fill(Color32::TRANSPARENT)
@@ -286,7 +286,6 @@ impl Prompt {
                                                         ).on_hover_text("Stop generation")
                                                         .clicked() {
                                                             action = Some(AppAction::StopPromptGeneration(idx));
-                                                        }
                                                     }
 
                                                     if remove_response
