@@ -9,7 +9,7 @@ use tokio::runtime;
 use crate::{
     assign_if_some,
     ollama::OllamaClient,
-    prompt::Prompt,
+    prompt::{Prompt, PromptState},
     view::{View, ViewMainPanel},
 };
 
@@ -74,6 +74,7 @@ type LoadLocalModelsFlower =
 pub enum AppAction {
     GeneratePromptResponse { idx: usize, input: String },
     RegeneratePromptResponse { idx: usize, history_idx: usize },
+    StopPromptGeneration(usize),
     CloseDialog,
     OpenAddPromptDialog,
     CancelPromptModification,
@@ -215,6 +216,12 @@ impl App {
     ) {
         if let Some(action) = action {
             match action {
+                AppAction::StopPromptGeneration(idx) => {
+                    if let Some(prompt) = self.prompts.get_mut(idx) {
+                        self.ollama_client.cancel_generation();
+                        prompt.state = PromptState::Idle;
+                    }
+                }
                 AppAction::GeneratePromptResponse { idx, input } => {
                     if let Some(selected_model) = &self.ollama_models.selected {
                         if let Some(prompt) = self.prompts.get_mut(idx) {
