@@ -21,6 +21,7 @@ pub struct App {
     prompts: Vec<Prompt>,
     view: View,
     ollama_models: OllamaModels,
+    ui_scale: f32,
     #[serde(skip)]
     tokio_runtime: runtime::Runtime,
     #[serde(skip)]
@@ -34,6 +35,7 @@ impl Default for App {
         Self {
             prompts: Vec::new(),
             view: Default::default(),
+            ui_scale: 1.2,
             tokio_runtime: tokio::runtime::Builder::new_multi_thread()
                 .enable_all()
                 .build()
@@ -84,6 +86,7 @@ pub enum AppAction {
     EditPrompt,
     SelectPrompt(usize),
     SelectOllamaModel(LocalModel),
+    SetUIScale(f32),
     ShowErrorDialog { title: String, message: String },
 }
 
@@ -116,6 +119,7 @@ impl eframe::App for App {
 
         self.handle_action(
             action,
+            ctx,
             &add_prompt_modal,
             &remove_prompt_modal,
             &edit_prompt_modal,
@@ -133,16 +137,18 @@ impl App {
     pub fn from_eframe_context(cc: &eframe::CreationContext<'_>) -> Self {
         eframe::storage_dir(TITLE);
 
-        Self::set_style(&cc.egui_ctx);
-
-        match cc.storage {
+        let app: Self = match cc.storage {
             Some(storage) => eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default(),
             None => Default::default(),
-        }
+        };
+
+        Self::set_scale(&cc.egui_ctx, app.ui_scale);
+
+        app
     }
 
-    fn set_style(ctx: &egui::Context) {
-        ctx.set_zoom_factor(1.2);
+    fn set_scale(ctx: &egui::Context, ui_scale: f32) {
+        ctx.set_zoom_factor(ui_scale);
     }
 
     fn remove_prompt(&mut self, idx: usize) {
@@ -167,9 +173,11 @@ impl App {
         self.prompts.get_mut(idx)
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn handle_action(
         &mut self,
         action: Option<AppAction>,
+        ctx: &egui::Context,
         add_prompt_modal: &Modal,
         remove_prompt_modal: &Modal,
         edit_prompt_modal: &Modal,
@@ -260,6 +268,10 @@ impl App {
                 }
                 AppAction::SelectOllamaModel(local_model) => {
                     self.ollama_models.selected = Some(local_model);
+                }
+                AppAction::SetUIScale(scale) => {
+                    self.ui_scale = scale;
+                    Self::set_scale(ctx, scale);
                 }
                 AppAction::ShowErrorDialog { title, message } => {
                     error_modal.open();
@@ -401,7 +413,28 @@ impl App {
 
                 ui.with_layout(Layout::bottom_up(egui::Align::Min), |ui| {
                     ui.add_space(6.0);
-                    global_theme_switch(ui);
+
+                    ui.horizontal(|ui| {
+                        global_theme_switch(ui);
+
+                        ui.add_space(6.0);
+
+                        // UI Scale control
+                        ui.horizontal(|ui| {
+                            let mut scale = self.ui_scale;
+                            if ui
+                                .add(
+                                    egui::Slider::new(&mut scale, 1.0..=2.5)
+                                        .step_by(0.1)
+                                        .show_value(false),
+                                )
+                                .changed()
+                            {
+                                action = Some(AppAction::SetUIScale(scale));
+                            }
+                            ui.label(format!("{:.0}%", scale * 100.0));
+                        });
+                    })
                 });
 
                 if add_prompt_modal.was_outside_clicked() || error_modal.was_outside_clicked() {
