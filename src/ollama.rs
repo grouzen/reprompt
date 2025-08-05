@@ -71,11 +71,21 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_cancel_generation() {
+    async fn test_ollama_client_creation() {
         let ollama = Ollama::default();
         let _client = OllamaClient::new(ollama);
         
+        // Test that client can be created successfully
+        assert!(true); // Basic functionality test
+    }
+
+    #[tokio::test]
+    async fn test_cancel_generation() {
+        let ollama = Ollama::default();
+        let client = OllamaClient::new(ollama);
+        
         // Test that cancel_generation can be called without error
+        client.cancel_generation();
         assert!(true); // Basic functionality test
     }
 
