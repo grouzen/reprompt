@@ -98,6 +98,10 @@ impl Prompt {
         self.history.remove(history_idx);
     }
 
+    pub fn history_count(&self) -> usize {
+        self.history.len()
+    }
+
     pub fn show_left_panel(
         &self,
         ui: &mut egui::Ui,
@@ -133,8 +137,13 @@ impl Prompt {
                             .fill(fill_style)
                             .show(ui, |ui| {
                                 ui.horizontal(|ui| {
+                                    // Show history count next to title
+                                    let mut title_with_count = self.title.clone();
+                                    if !self.history.is_empty() {
+                                        title_with_count.push_str(&format!(" ({})", self.history.len()));
+                                    }
                                     let label_response =
-                                        ui.add(egui::Label::wrap(egui::Label::new(&self.title)));
+                                        ui.add(egui::Label::wrap(egui::Label::new(&title_with_count)));
 
                                     ui.with_layout(Layout::right_to_left(egui::Align::Min), |ui| {
                                         let remove_response = ui.add_enabled(

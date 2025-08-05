@@ -28,6 +28,8 @@ pub struct App {
     ollama_client: OllamaClient,
     #[serde(skip)]
     commonmark_cache: CommonMarkCache,
+    #[serde(skip)]
+    sort_by_history_count: bool,
 }
 
 impl Default for App {
@@ -43,6 +45,7 @@ impl Default for App {
             ollama_client: OllamaClient::new(Ollama::default()),
             ollama_models: Default::default(),
             commonmark_cache: CommonMarkCache::default(),
+            sort_by_history_count: false,
         }
     }
 }
@@ -440,6 +443,24 @@ impl App {
                     assign_if_some!(action, self.show_left_panel_model_selector(ui))
                 });
 
+                // Add sort button
+                ui.horizontal(|ui| {
+                    if ui
+                        .add(egui::Button::new(if self.sort_by_history_count {
+                            "⬇️ Sort by History Count"
+                        } else {
+                            "⬆️ Sort by History Count"
+                        })
+                        .fill(Color32::TRANSPARENT)
+                        .small()
+                        .stroke(Stroke::NONE))
+                        .on_hover_text("Toggle sorting by history count")
+                        .clicked()
+                    {
+                        self.sort_by_history_count = !self.sort_by_history_count;
+                    }
+                });
+
                 ui.separator();
 
                 assign_if_some!(
@@ -540,7 +561,16 @@ impl App {
         let mut action = None;
 
         ScrollArea::vertical().show(ui, |ui| {
-            for (idx, prompt) in self.prompts.iter().enumerate() {
+            // Sort prompts by history count if sorting is enabled
+            let mut prompt_indices = (0..self.prompts.len()).collect::<Vec<usize>>();
+            if self.sort_by_history_count {
+                prompt_indices.sort_by(|&a, &b| {
+                    self.prompts[b].history_count().cmp(&self.prompts[a].history_count())
+                });
+            }
+
+            for &idx in &prompt_indices {
+                let prompt = &self.prompts[idx];
                 let selected = self.view.is_prompt_selected(idx);
 
                 ui.add_space(3.0);
