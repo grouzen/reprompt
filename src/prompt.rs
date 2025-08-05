@@ -47,6 +47,8 @@ struct PromptResponse {
     local_model_name: String,
     #[serde(skip)]
     requested_at: Instant,
+    #[serde(skip)]
+    last_used_at: Option<Instant>,
 }
 
 impl Default for PromptResponse {
@@ -56,6 +58,7 @@ impl Default for PromptResponse {
             output: Default::default(),
             local_model_name: "unknown_model".to_owned(),
             requested_at: Instant::now(),
+            last_used_at: None,
         }
     }
 }
@@ -82,6 +85,10 @@ impl PromptResponse {
             ..Default::default()
         }
     }
+    
+    pub fn mark_used(&mut self) {
+        self.last_used_at = Some(Instant::now());
+    }
 }
 
 impl Prompt {
@@ -100,6 +107,14 @@ impl Prompt {
 
     pub fn history_count(&self) -> usize {
         self.history.len()
+    }
+
+    pub fn get_last_used_time(&self) -> Option<Instant> {
+        // Find the most recently used response in history
+        self.history
+            .iter()
+            .filter_map(|response| response.last_used_at)
+            .max()
     }
 
     pub fn show_left_panel(
@@ -423,12 +438,16 @@ impl Prompt {
 
         self.ask_flower
             .extract(|output| {
-                self.history.get_mut(0).unwrap().output = output;
+                let response = self.history.get_mut(0).unwrap();
+                response.output = output;
+                response.mark_used();
             })
             .finalize(|result| {
                 match result {
                     Ok(output) => {
-                        self.history.get_mut(0).unwrap().output = output;
+                        let response = self.history.get_mut(0).unwrap();
+                        response.output = output;
+                        response.mark_used();
                     }
                     Err(Compact::Suppose(e)) => {
                         // Remove the failed response from history

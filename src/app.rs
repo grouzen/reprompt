@@ -447,14 +447,14 @@ impl App {
                 ui.horizontal(|ui| {
                     if ui
                         .add(egui::Button::new(if self.sort_by_history_count {
-                            "⬇️ Sort by History Count"
+                            "⬇️ Sort by History Count & Last Usage"
                         } else {
-                            "⬆️ Sort by History Count"
+                            "⬆️ Sort by History Count & Last Usage"
                         })
                         .fill(Color32::TRANSPARENT)
                         .small()
                         .stroke(Stroke::NONE))
-                        .on_hover_text("Toggle sorting by history count")
+                        .on_hover_text("Toggle sorting by history count and last usage time")
                         .clicked()
                     {
                         self.sort_by_history_count = !self.sort_by_history_count;
@@ -565,7 +565,26 @@ impl App {
             let mut prompt_indices = (0..self.prompts.len()).collect::<Vec<usize>>();
             if self.sort_by_history_count {
                 prompt_indices.sort_by(|&a, &b| {
-                    self.prompts[b].history_count().cmp(&self.prompts[a].history_count())
+                    // First sort by history count (descending)
+                    let count_a = self.prompts[a].history_count();
+                    let count_b = self.prompts[b].history_count();
+                    let count_cmp = count_b.cmp(&count_a);
+                    
+                    // If history counts are equal, sort by last usage time (descending)
+                    if count_cmp == std::cmp::Ordering::Equal {
+                        let last_used_a = self.prompts[a].get_last_used_time();
+                        let last_used_b = self.prompts[b].get_last_used_time();
+                        
+                        // Handle cases where one or both might be None
+                        match (last_used_a, last_used_b) {
+                            (Some(time_a), Some(time_b)) => time_b.cmp(&time_a), // More recent first
+                            (Some(_), None) => std::cmp::Ordering::Less,       // a is more recent
+                            (None, Some(_)) => std::cmp::Ordering::Greater,     // b is more recent
+                            (None, None) => std::cmp::Ordering::Equal,         // both are equal
+                        }
+                    } else {
+                        count_cmp
+                    }
                 });
             }
 
