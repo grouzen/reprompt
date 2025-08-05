@@ -60,7 +60,7 @@ impl Default for PromptResponse {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug, PartialEq)]
 pub enum PromptState {
     #[default]
     Idle,

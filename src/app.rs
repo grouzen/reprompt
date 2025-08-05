@@ -628,3 +628,43 @@ impl App {
         (max_width, min_width)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_prompt_management() {
+        let mut app = App::default();
+        
+        // Test adding a prompt
+        app.add_prompt("Test Title".to_string(), "Test Content".to_string());
+        assert_eq!(app.prompts.len(), 1);
+        assert_eq!(app.prompts[0].title, "Test Title");
+        assert_eq!(app.prompts[0].content, "Test Content");
+        
+        // Test editing a prompt
+        app.edit_prompt(0, "Edited Title".to_string(), "Edited Content".to_string());
+        assert_eq!(app.prompts[0].title, "Edited Title");
+        assert_eq!(app.prompts[0].content, "Edited Content");
+        
+        // Test removing a prompt
+        app.remove_prompt(0);
+        assert_eq!(app.prompts.len(), 0);
+    }
+
+    #[test]
+    fn test_state_transitions() {
+        let mut app = App::default();
+        
+        // Test initial state
+        assert_eq!(app.prompts.len(), 0);
+        
+        // Test adding a prompt and checking state
+        app.add_prompt("Test Title".to_string(), "Test Content".to_string());
+        assert_eq!(app.prompts.len(), 1);
+        
+        // Test that the prompt starts in Idle state
+        assert_eq!(app.prompts[0].state, PromptState::Idle);
+    }
+}
