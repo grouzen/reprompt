@@ -354,10 +354,6 @@ impl App {
         });
     }
 
-    pub fn reload_models(&mut self) {
-        self.load_local_models();
-    }
-
     fn poll_load_flower(&mut self) -> Option<AppAction> {
         let mut action = None;
 
