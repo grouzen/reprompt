@@ -87,6 +87,7 @@ pub enum AppAction {
     EditPrompt,
     SelectPrompt(usize),
     SelectOllamaModel(LocalModel),
+    ReloadOllamaModels,
     SetUIScale(f32),
     ShowErrorDialog { title: String, message: String },
 }
@@ -313,6 +314,9 @@ impl App {
                     error_modal.open();
                     self.view.open_error_modal(title, message);
                 }
+                AppAction::ReloadOllamaModels => {
+                    self.load_local_models();
+                }
             }
         }
     }
@@ -515,18 +519,34 @@ impl App {
     fn show_left_panel_model_selector(&mut self, ui: &mut egui::Ui) -> Option<AppAction> {
         let mut action = None;
 
-        if let Some(selected) = &self.ollama_models.selected {
-            egui::ComboBox::from_id_salt("left_panel_models_selector")
-                .selected_text(&selected.name)
-                .show_ui(ui, |ui| {
-                    for model in &self.ollama_models.available {
-                        let checked = selected.name == model.name;
-                        if ui.selectable_label(checked, &model.name).clicked() {
-                            action = Some(AppAction::SelectOllamaModel(model.clone()));
+        ui.horizontal(|ui| {
+            if let Some(selected) = &self.ollama_models.selected {
+                egui::ComboBox::from_id_salt("left_panel_models_selector")
+                    .selected_text(&selected.name)
+                    .show_ui(ui, |ui| {
+                        for model in &self.ollama_models.available {
+                            let checked = selected.name == model.name;
+                            if ui.selectable_label(checked, &model.name).clicked() {
+                                action = Some(AppAction::SelectOllamaModel(model.clone()));
+                            }
                         }
-                    }
-                });
-        }
+                    });
+            }
+
+            // Add reload button next to the model selector
+            if ui
+                .add(
+                    egui::Button::new("🔄")
+                        .fill(Color32::TRANSPARENT)
+                        .small()
+                        .stroke(Stroke::NONE),
+                )
+                .on_hover_text("Reload models")
+                .clicked()
+            {
+                action = Some(AppAction::ReloadOllamaModels);
+            }
+        });
 
         action
     }
