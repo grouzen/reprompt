@@ -538,7 +538,16 @@ impl App {
             }
 
             // Add reload button next to the model selector
-            if ui.button("🔄").on_hover_text("Reload models").clicked() {
+            if ui
+                .add(
+                    egui::Button::new("🔄")
+                        .fill(Color32::TRANSPARENT)
+                        .small()
+                        .stroke(Stroke::NONE),
+                )
+                .on_hover_text("Reload models")
+                .clicked()
+            {
                 action = Some(AppAction::ReloadOllamaModels);
             }
         });
