@@ -15,6 +15,18 @@ use crate::{
 
 pub const TITLE: &str = "Reprompt";
 
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, PartialEq, Eq)]
+pub enum SortMode {
+    HistoryCount,
+    LastUsage,
+}
+
+impl Default for SortMode {
+    fn default() -> Self {
+        Self::HistoryCount
+    }
+}
+
 #[derive(serde::Serialize, serde::Deserialize)]
 #[serde(default)]
 pub struct App {
@@ -29,7 +41,7 @@ pub struct App {
     #[serde(skip)]
     commonmark_cache: CommonMarkCache,
     #[serde(skip)]
-    sort_by_history_count: bool,
+    sort_mode: SortMode,
 }
 
 impl Default for App {
@@ -45,7 +57,7 @@ impl Default for App {
             ollama_client: OllamaClient::new(Ollama::default()),
             ollama_models: Default::default(),
             commonmark_cache: CommonMarkCache::default(),
-            sort_by_history_count: false,
+            sort_mode: SortMode::default(),
         }
     }
 }
@@ -444,22 +456,24 @@ impl App {
                 });
 
                 // Add sort button
-                ui.horizontal(|ui| {
-                    if ui
-                        .add(egui::Button::new(if self.sort_by_history_count {
-                            "⬇️ Sort by History Count & Last Usage"
-                        } else {
-                            "⬆️ Sort by History Count & Last Usage"
-                        })
-                        .fill(Color32::TRANSPARENT)
-                        .small()
-                        .stroke(Stroke::NONE))
-                        .on_hover_text("Toggle sorting by history count and last usage time")
-                        .clicked()
-                    {
-                        self.sort_by_history_count = !self.sort_by_history_count;
-                    }
-                });
+               ui.horizontal(|ui| {
+                   if ui
+                       .add(egui::Button::new(match self.sort_mode {
+                           SortMode::HistoryCount => "⬇️ Sort by History Count",
+                           SortMode::LastUsage => "⬇️ Sort by Last Usage",
+                       })
+                       .fill(Color32::TRANSPARENT)
+                       .small()
+                       .stroke(Stroke::NONE))
+                       .on_hover_text("Toggle sorting mode")
+                       .clicked()
+                   {
+                       self.sort_mode = match self.sort_mode {
+                           SortMode::HistoryCount => SortMode::LastUsage,
+                           SortMode::LastUsage => SortMode::HistoryCount,
+                       };
+                   }
+               });
 
                 ui.separator();
 
@@ -561,32 +575,49 @@ impl App {
         let mut action = None;
 
         ScrollArea::vertical().show(ui, |ui| {
-            // Sort prompts by history count if sorting is enabled
-            let mut prompt_indices = (0..self.prompts.len()).collect::<Vec<usize>>();
-            if self.sort_by_history_count {
-                prompt_indices.sort_by(|&a, &b| {
-                    // First sort by history count (descending)
-                    let count_a = self.prompts[a].history_count();
-                    let count_b = self.prompts[b].history_count();
-                    let count_cmp = count_b.cmp(&count_a);
-                    
-                    // If history counts are equal, sort by last usage time (descending)
-                    if count_cmp == std::cmp::Ordering::Equal {
-                        let last_used_a = self.prompts[a].get_last_used_time();
-                        let last_used_b = self.prompts[b].get_last_used_time();
-                        
-                        // Handle cases where one or both might be None
-                        match (last_used_a, last_used_b) {
-                            (Some(time_a), Some(time_b)) => time_b.cmp(&time_a), // More recent first
-                            (Some(_), None) => std::cmp::Ordering::Less,       // a is more recent
-                            (None, Some(_)) => std::cmp::Ordering::Greater,     // b is more recent
-                            (None, None) => std::cmp::Ordering::Equal,         // both are equal
-                        }
-                    } else {
-                        count_cmp
-                    }
-                });
-            }
+            // Sort prompts based on current sort mode
+           let mut prompt_indices = (0..self.prompts.len()).collect::<Vec<usize>>();
+           match self.sort_mode {
+               SortMode::HistoryCount => {
+                   prompt_indices.sort_by(|&a, &b| {
+                       // First sort by history count (descending)
+                       let count_a = self.prompts[a].history_count();
+                       let count_b = self.prompts[b].history_count();
+                       let count_cmp = count_b.cmp(&count_a);
+                       
+                       // If history counts are equal, sort by last usage time (descending)
+                       if count_cmp == std::cmp::Ordering::Equal {
+                           let last_used_a = self.prompts[a].get_last_used_time();
+                           let last_used_b = self.prompts[b].get_last_used_time();
+                           
+                           // Handle cases where one or both might be None
+                           match (last_used_a, last_used_b) {
+                               (Some(time_a), Some(time_b)) => time_b.cmp(&time_a), // More recent first
+                               (Some(_), None) => std::cmp::Ordering::Less,       // a is more recent
+                               (None, Some(_)) => std::cmp::Ordering::Greater,     // b is more recent
+                               (None, None) => std::cmp::Ordering::Equal,         // both are equal
+                           }
+                       } else {
+                           count_cmp
+                       }
+                   });
+               }
+               SortMode::LastUsage => {
+                   prompt_indices.sort_by(|&a, &b| {
+                       // Sort by last usage time (descending)
+                       let last_used_a = self.prompts[a].get_last_used_time();
+                       let last_used_b = self.prompts[b].get_last_used_time();
+                       
+                       // Handle cases where one or both might be None
+                       match (last_used_a, last_used_b) {
+                           (Some(time_a), Some(time_b)) => time_b.cmp(&time_a), // More recent first
+                           (Some(_), None) => std::cmp::Ordering::Less,       // a is more recent
+                           (None, Some(_)) => std::cmp::Ordering::Greater,     // b is more recent
+                           (None, None) => std::cmp::Ordering::Equal,         // both are equal
+                       }
+                   });
+               }
+           }
 
             for &idx in &prompt_indices {
                 let prompt = &self.prompts[idx];
