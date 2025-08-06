@@ -14,6 +14,7 @@ use crate::{
 };
 
 pub const TITLE: &str = "Reprompt";
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(serde::Serialize, serde::Deserialize)]
 #[serde(default)]
@@ -475,7 +476,12 @@ impl App {
                             }
                             ui.label(format!("{:.0}%", scale * 100.0));
                         });
-                    })
+                    });
+
+                    ui.add_space(6.0);
+
+                    // Version label (slightly smaller than default)
+                    ui.label(egui::RichText::new(format!("v{VERSION}")).size(12.0));
                 });
 
                 if add_prompt_modal.was_outside_clicked() || error_modal.was_outside_clicked() {
