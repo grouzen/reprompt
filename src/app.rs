@@ -19,11 +19,12 @@ pub const TITLE: &str = "Reprompt";
 pub enum SortMode {
     HistoryCount,
     LastUsage,
+    InsertionOrder,
 }
 
 impl Default for SortMode {
     fn default() -> Self {
-        Self::HistoryCount
+        Self::InsertionOrder
     }
 }
 
@@ -57,7 +58,7 @@ impl Default for App {
             ollama_client: OllamaClient::new(Ollama::default()),
             ollama_models: Default::default(),
             commonmark_cache: CommonMarkCache::default(),
-            sort_mode: SortMode::default(),
+            sort_mode: SortMode::InsertionOrder,
         }
     }
 }
@@ -461,6 +462,7 @@ impl App {
                        .add(egui::Button::new(match self.sort_mode {
                            SortMode::HistoryCount => "⬇️ Sort by History Count",
                            SortMode::LastUsage => "⬇️ Sort by Last Usage",
+                           SortMode::InsertionOrder => "⬇️ Sort by Insertion Order",
                        })
                        .fill(Color32::TRANSPARENT)
                        .small()
@@ -470,7 +472,8 @@ impl App {
                    {
                        self.sort_mode = match self.sort_mode {
                            SortMode::HistoryCount => SortMode::LastUsage,
-                           SortMode::LastUsage => SortMode::HistoryCount,
+                           SortMode::LastUsage => SortMode::InsertionOrder,
+                           SortMode::InsertionOrder => SortMode::HistoryCount,
                        };
                    }
                });
@@ -575,7 +578,7 @@ impl App {
         let mut action = None;
 
         ScrollArea::vertical().show(ui, |ui| {
-            // Sort prompts based on current sort mode
+           // Sort prompts based on current sort mode
            let mut prompt_indices = (0..self.prompts.len()).collect::<Vec<usize>>();
            match self.sort_mode {
                SortMode::HistoryCount => {
@@ -616,6 +619,10 @@ impl App {
                            (None, None) => std::cmp::Ordering::Equal,         // both are equal
                        }
                    });
+               }
+               SortMode::InsertionOrder => {
+                   // No sorting - maintain insertion order
+                   prompt_indices.sort_by_key(|&i| i);
                }
            }
 
