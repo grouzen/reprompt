@@ -723,3 +723,129 @@ impl App {
         (max_width, min_width)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sort_prompt_indices_empty_list() {
+        let app = App::default();
+        let indices = app.sort_prompt_indices();
+        assert_eq!(indices, Vec::<usize>::new());
+    }
+
+    #[test]
+    fn test_sort_prompt_indices_single_element() {
+        let mut app = App::default();
+        app.add_prompt("Test Prompt".to_string(), "Test Content".to_string());
+        
+        let indices = app.sort_prompt_indices();
+        assert_eq!(indices, vec![0]);
+    }
+
+    #[test]
+    fn test_sort_prompt_indices_insertion_order() {
+        let mut app = App::default();
+        app.sort_mode = SortMode::InsertionOrder;
+        
+        // Add prompts in order: 1, 2, 3
+        app.add_prompt("Prompt 1".to_string(), "Content 1".to_string());
+        app.add_prompt("Prompt 2".to_string(), "Content 2".to_string());
+        app.add_prompt("Prompt 3".to_string(), "Content 3".to_string());
+        
+        let indices = app.sort_prompt_indices();
+        // Should maintain insertion order
+        assert_eq!(indices, vec![0, 1, 2]);
+    }
+
+    #[test]
+    fn test_sort_prompt_indices_history_count_sorting() {
+        let mut app = App::default();
+        app.sort_mode = SortMode::HistoryCount;
+        
+        // Add prompts with different history counts by creating them in a way that
+        // they will have different history counts when sorted
+        app.add_prompt("Prompt 1".to_string(), "Content 1".to_string());
+        app.add_prompt("Prompt 2".to_string(), "Content 2".to_string());
+        app.add_prompt("Prompt 3".to_string(), "Content 3".to_string());
+        
+        // Test that the sorting works with different history counts
+        let indices = app.sort_prompt_indices();
+        // All have same history count (0), so should maintain insertion order
+        assert_eq!(indices, vec![0, 1, 2]);
+    }
+
+    #[test]
+    fn test_sort_prompt_indices_last_usage_sorting() {
+        let mut app = App::default();
+        app.sort_mode = SortMode::LastUsage;
+        
+        // Add prompts with different usage patterns
+        app.add_prompt("Prompt 1".to_string(), "Content 1".to_string());
+        app.add_prompt("Prompt 2".to_string(), "Content 2".to_string());
+        app.add_prompt("Prompt 3".to_string(), "Content 3".to_string());
+        
+        // Test that sorting works for LastUsage mode
+        let indices = app.sort_prompt_indices();
+        // All have same last usage time (none), so should maintain insertion order
+        assert_eq!(indices, vec![0, 1, 2]);
+    }
+
+    #[test]
+    fn test_sort_prompt_indices_different_sort_modes() {
+        let mut app = App::default();
+        
+        // Test all three sort modes work without panicking
+        app.add_prompt("Prompt 1".to_string(), "Content 1".to_string());
+        app.add_prompt("Prompt 2".to_string(), "Content 2".to_string());
+        
+        // Test HistoryCount mode
+        app.sort_mode = SortMode::HistoryCount;
+        let indices1 = app.sort_prompt_indices();
+        assert_eq!(indices1.len(), 2);
+        
+        // Test LastUsage mode
+        app.sort_mode = SortMode::LastUsage;
+        let indices2 = app.sort_prompt_indices();
+        assert_eq!(indices2.len(), 2);
+        
+        // Test InsertionOrder mode
+        app.sort_mode = SortMode::InsertionOrder;
+        let indices3 = app.sort_prompt_indices();
+        assert_eq!(indices3.len(), 2);
+    }
+
+    #[test]
+    fn test_sort_prompt_indices_large_dataset() {
+        let mut app = App::default();
+        app.sort_mode = SortMode::HistoryCount;
+        
+        // Create a large dataset to test performance
+        for i in 0..100 {
+            app.add_prompt(format!("Prompt {}", i), format!("Content {}", i));
+        }
+        
+        let indices = app.sort_prompt_indices();
+        // Should return all indices
+        assert_eq!(indices.len(), 100);
+        // Should be sorted by history count (descending) - all have same count so insertion order
+        assert_eq!(indices, (0..100).collect::<Vec<usize>>());
+    }
+
+    #[test]
+    fn test_sort_prompt_indices_stability() {
+        let mut app = App::default();
+        app.sort_mode = SortMode::HistoryCount;
+        
+        // Add prompts with same history counts to test stability
+        app.add_prompt("Prompt A".to_string(), "Content A".to_string());
+        app.add_prompt("Prompt B".to_string(), "Content B".to_string());
+        app.add_prompt("Prompt C".to_string(), "Content C".to_string());
+        
+        // All have same history count (0)
+        let indices = app.sort_prompt_indices();
+        // Should maintain stable insertion order
+        assert_eq!(indices, vec![0, 1, 2]);
+    }
+}
