@@ -569,6 +569,59 @@ impl App {
         action
     }
 
+    /// Sorts prompt indices based on the current sort mode
+    fn sort_prompt_indices(&self) -> Vec<usize> {
+        let mut prompt_indices = (0..self.prompts.len()).collect::<Vec<usize>>();
+        
+        match self.sort_mode {
+            SortMode::HistoryCount => {
+                prompt_indices.sort_by(|&a, &b| {
+                    // First sort by history count (descending)
+                    let count_a = self.prompts[a].history_count();
+                    let count_b = self.prompts[b].history_count();
+                    let count_cmp = count_b.cmp(&count_a);
+                    
+                    // If history counts are equal, sort by last usage time (descending)
+                    if count_cmp == std::cmp::Ordering::Equal {
+                        let last_used_a = self.prompts[a].get_last_used_time();
+                        let last_used_b = self.prompts[b].get_last_used_time();
+                        
+                        // Handle cases where one or both might be None
+                        match (last_used_a, last_used_b) {
+                            (Some(time_a), Some(time_b)) => time_b.cmp(&time_a), // More recent first
+                            (Some(_), None) => std::cmp::Ordering::Less,       // a is more recent
+                            (None, Some(_)) => std::cmp::Ordering::Greater,     // b is more recent
+                            (None, None) => std::cmp::Ordering::Equal,         // both are equal
+                        }
+                    } else {
+                        count_cmp
+                    }
+                });
+            }
+            SortMode::LastUsage => {
+                prompt_indices.sort_by(|&a, &b| {
+                    // Sort by last usage time (descending)
+                    let last_used_a = self.prompts[a].get_last_used_time();
+                    let last_used_b = self.prompts[b].get_last_used_time();
+                    
+                    // Handle cases where one or both might be None
+                    match (last_used_a, last_used_b) {
+                        (Some(time_a), Some(time_b)) => time_b.cmp(&time_a), // More recent first
+                        (Some(_), None) => std::cmp::Ordering::Less,       // a is more recent
+                        (None, Some(_)) => std::cmp::Ordering::Greater,     // b is more recent
+                        (None, None) => std::cmp::Ordering::Equal,         // both are equal
+                    }
+                });
+            }
+            SortMode::InsertionOrder => {
+                // No sorting - maintain insertion order
+                prompt_indices.sort_by_key(|&i| i);
+            }
+        }
+        
+        prompt_indices
+    }
+
     fn show_left_panel_prompts(
         &mut self,
         ui: &mut egui::Ui,
@@ -578,53 +631,8 @@ impl App {
         let mut action = None;
 
         ScrollArea::vertical().show(ui, |ui| {
-           // Sort prompts based on current sort mode
-           let mut prompt_indices = (0..self.prompts.len()).collect::<Vec<usize>>();
-           match self.sort_mode {
-               SortMode::HistoryCount => {
-                   prompt_indices.sort_by(|&a, &b| {
-                       // First sort by history count (descending)
-                       let count_a = self.prompts[a].history_count();
-                       let count_b = self.prompts[b].history_count();
-                       let count_cmp = count_b.cmp(&count_a);
-                       
-                       // If history counts are equal, sort by last usage time (descending)
-                       if count_cmp == std::cmp::Ordering::Equal {
-                           let last_used_a = self.prompts[a].get_last_used_time();
-                           let last_used_b = self.prompts[b].get_last_used_time();
-                           
-                           // Handle cases where one or both might be None
-                           match (last_used_a, last_used_b) {
-                               (Some(time_a), Some(time_b)) => time_b.cmp(&time_a), // More recent first
-                               (Some(_), None) => std::cmp::Ordering::Less,       // a is more recent
-                               (None, Some(_)) => std::cmp::Ordering::Greater,     // b is more recent
-                               (None, None) => std::cmp::Ordering::Equal,         // both are equal
-                           }
-                       } else {
-                           count_cmp
-                       }
-                   });
-               }
-               SortMode::LastUsage => {
-                   prompt_indices.sort_by(|&a, &b| {
-                       // Sort by last usage time (descending)
-                       let last_used_a = self.prompts[a].get_last_used_time();
-                       let last_used_b = self.prompts[b].get_last_used_time();
-                       
-                       // Handle cases where one or both might be None
-                       match (last_used_a, last_used_b) {
-                           (Some(time_a), Some(time_b)) => time_b.cmp(&time_a), // More recent first
-                           (Some(_), None) => std::cmp::Ordering::Less,       // a is more recent
-                           (None, Some(_)) => std::cmp::Ordering::Greater,     // b is more recent
-                           (None, None) => std::cmp::Ordering::Equal,         // both are equal
-                       }
-                   });
-               }
-               SortMode::InsertionOrder => {
-                   // No sorting - maintain insertion order
-                   prompt_indices.sort_by_key(|&i| i);
-               }
-           }
+            // Sort prompts based on current sort mode
+            let prompt_indices = self.sort_prompt_indices();
 
             for &idx in &prompt_indices {
                 let prompt = &self.prompts[idx];
