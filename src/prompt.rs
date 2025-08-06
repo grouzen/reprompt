@@ -47,6 +47,8 @@ struct PromptResponse {
     local_model_name: String,
     #[serde(skip)]
     requested_at: Instant,
+    #[serde(skip)]
+    created_at: Instant,
 }
 
 impl Default for PromptResponse {
@@ -56,6 +58,7 @@ impl Default for PromptResponse {
             output: Default::default(),
             local_model_name: "unknown_model".to_owned(),
             requested_at: Instant::now(),
+            created_at: Instant::now(),
         }
     }
 }
@@ -98,6 +101,18 @@ impl Prompt {
         self.history.remove(history_idx);
     }
 
+    pub fn history_count(&self) -> usize {
+        self.history.len()
+    }
+
+    pub fn get_last_used_time(&self) -> Option<Instant> {
+        // Find the most recently created response in history
+        self.history
+            .iter()
+            .map(|response| response.created_at)
+            .max()
+    }
+
     pub fn show_left_panel(
         &self,
         ui: &mut egui::Ui,
@@ -133,8 +148,13 @@ impl Prompt {
                             .fill(fill_style)
                             .show(ui, |ui| {
                                 ui.horizontal(|ui| {
+                                    // Show history count next to title
+                                    let mut title_with_count = self.title.clone();
+                                    if !self.history.is_empty() {
+                                        title_with_count.push_str(&format!(" ({})", self.history.len()));
+                                    }
                                     let label_response =
-                                        ui.add(egui::Label::wrap(egui::Label::new(&self.title)));
+                                        ui.add(egui::Label::wrap(egui::Label::new(&title_with_count)));
 
                                     ui.with_layout(Layout::right_to_left(egui::Align::Min), |ui| {
                                         let remove_response = ui.add_enabled(
@@ -414,12 +434,14 @@ impl Prompt {
 
         self.ask_flower
             .extract(|output| {
-                self.history.get_mut(0).unwrap().output = output;
+                let response = self.history.get_mut(0).unwrap();
+                response.output = output;
             })
             .finalize(|result| {
                 match result {
                     Ok(output) => {
-                        self.history.get_mut(0).unwrap().output = output;
+                        let response = self.history.get_mut(0).unwrap();
+                        response.output = output;
                     }
                     Err(Compact::Suppose(e)) => {
                         // Remove the failed response from history
