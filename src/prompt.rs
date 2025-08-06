@@ -48,7 +48,7 @@ struct PromptResponse {
     #[serde(skip)]
     requested_at: Instant,
     #[serde(skip)]
-    last_used_at: Option<Instant>,
+    created_at: Instant,
 }
 
 impl Default for PromptResponse {
@@ -58,7 +58,7 @@ impl Default for PromptResponse {
             output: Default::default(),
             local_model_name: "unknown_model".to_owned(),
             requested_at: Instant::now(),
-            last_used_at: None,
+            created_at: Instant::now(),
         }
     }
 }
@@ -85,10 +85,6 @@ impl PromptResponse {
             ..Default::default()
         }
     }
-    
-    pub fn mark_used(&mut self) {
-        self.last_used_at = Some(Instant::now());
-    }
 }
 
 impl Prompt {
@@ -110,10 +106,10 @@ impl Prompt {
     }
 
     pub fn get_last_used_time(&self) -> Option<Instant> {
-        // Find the most recently used response in history
+        // Find the most recently created response in history
         self.history
             .iter()
-            .filter_map(|response| response.last_used_at)
+            .map(|response| response.created_at)
             .max()
     }
 
@@ -440,14 +436,12 @@ impl Prompt {
             .extract(|output| {
                 let response = self.history.get_mut(0).unwrap();
                 response.output = output;
-                response.mark_used();
             })
             .finalize(|result| {
                 match result {
                     Ok(output) => {
                         let response = self.history.get_mut(0).unwrap();
                         response.output = output;
-                        response.mark_used();
                     }
                     Err(Compact::Suppose(e)) => {
                         // Remove the failed response from history
