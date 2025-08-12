@@ -1,5 +1,6 @@
 use std::{collections::VecDeque, time::Instant};
 
+use egui::RichText;
 use egui::{
     Color32, CornerRadius, Frame, Key, KeyboardShortcut, Label, Layout, Modifiers, ScrollArea,
     Sense, Stroke, UiBuilder,
@@ -47,6 +48,8 @@ struct PromptResponse {
     local_model_name: String,
     #[serde(skip)]
     requested_at: Instant,
+    #[serde(skip)]
+    created_at: Instant,
 }
 
 impl Default for PromptResponse {
@@ -56,6 +59,7 @@ impl Default for PromptResponse {
             output: Default::default(),
             local_model_name: "unknown_model".to_owned(),
             requested_at: Instant::now(),
+            created_at: Instant::now(),
         }
     }
 }
@@ -96,6 +100,18 @@ impl Prompt {
 
     pub fn remove_history(&mut self, history_idx: usize) {
         self.history.remove(history_idx);
+    }
+
+    pub fn history_count(&self) -> usize {
+        self.history.len()
+    }
+
+    pub fn get_last_used_time(&self) -> Option<Instant> {
+        // Find the most recently created response in history
+        self.history
+            .iter()
+            .map(|response| response.created_at)
+            .max()
     }
 
     pub fn show_left_panel(
@@ -151,6 +167,10 @@ impl Prompt {
                                                 .small()
                                                 .stroke(Stroke::NONE),
                                         );
+
+                                        let count_text = format!("{:3}", self.history.len());
+
+                                        ui.add(egui::Label::new(RichText::new(count_text)));
 
                                         if remove_response.on_hover_text("Remove prompt").clicked()
                                         {
@@ -336,15 +356,12 @@ impl Prompt {
 
                                             if copy_response
                                                 .on_hover_text("Copy response")
-                                                .clicked()
-                                            {
-                                                if let Err(e) = crate::copy_to_clipboard(&prompt_response.output) {
+                                                .clicked() && let Err(e) = crate::copy_to_clipboard(&prompt_response.output) {
                                                     action = Some(AppAction::ShowErrorDialog {
                                                         title: "Copy Error".to_string(),
                                                         message: format!("Failed to copy to clipboard: {e}"),
                                                     });
-                                                }
-                                            }
+                                                };
                                         });
                                     },
                                 );
@@ -414,12 +431,14 @@ impl Prompt {
 
         self.ask_flower
             .extract(|output| {
-                self.history.get_mut(0).unwrap().output = output;
+                let response = self.history.get_mut(0).unwrap();
+                response.output = output;
             })
             .finalize(|result| {
                 match result {
                     Ok(output) => {
-                        self.history.get_mut(0).unwrap().output = output;
+                        let response = self.history.get_mut(0).unwrap();
+                        response.output = output;
                     }
                     Err(Compact::Suppose(e)) => {
                         // Remove the failed response from history

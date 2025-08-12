@@ -16,6 +16,19 @@ use crate::{
 pub const TITLE: &str = "Reprompt";
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, PartialEq, Eq)]
+pub enum SortMode {
+    HistoryCount,
+    LastUsage,
+    InsertionOrder,
+}
+
+impl Default for SortMode {
+    fn default() -> Self {
+        Self::InsertionOrder
+    }
+}
+
 #[derive(serde::Serialize, serde::Deserialize)]
 #[serde(default)]
 pub struct App {
@@ -29,6 +42,8 @@ pub struct App {
     ollama_client: OllamaClient,
     #[serde(skip)]
     commonmark_cache: CommonMarkCache,
+    #[serde(skip)]
+    sort_mode: SortMode,
 }
 
 impl Default for App {
@@ -44,6 +59,7 @@ impl Default for App {
             ollama_client: OllamaClient::new(Ollama::default()),
             ollama_models: Default::default(),
             commonmark_cache: CommonMarkCache::default(),
+            sort_mode: SortMode::InsertionOrder,
         }
     }
 }
@@ -225,27 +241,27 @@ impl App {
                     }
                 }
                 AppAction::GeneratePromptResponse { idx, input } => {
-                    if let Some(selected_model) = &self.ollama_models.selected {
-                        if let Some(prompt) = self.prompts.get_mut(idx) {
-                            prompt.generate_response(
-                                input,
-                                selected_model,
-                                &self.tokio_runtime,
-                                &self.ollama_client,
-                            );
-                        }
+                    if let Some(selected_model) = &self.ollama_models.selected
+                        && let Some(prompt) = self.prompts.get_mut(idx)
+                    {
+                        prompt.generate_response(
+                            input,
+                            selected_model,
+                            &self.tokio_runtime,
+                            &self.ollama_client,
+                        );
                     }
                 }
                 AppAction::RegeneratePromptResponse { idx, history_idx } => {
-                    if let Some(selected_model) = &self.ollama_models.selected {
-                        if let Some(prompt) = self.prompts.get_mut(idx) {
-                            prompt.regenerate_response(
-                                history_idx,
-                                selected_model,
-                                &self.tokio_runtime,
-                                &self.ollama_client,
-                            );
-                        }
+                    if let Some(selected_model) = &self.ollama_models.selected
+                        && let Some(prompt) = self.prompts.get_mut(idx)
+                    {
+                        prompt.regenerate_response(
+                            history_idx,
+                            selected_model,
+                            &self.tokio_runtime,
+                            &self.ollama_client,
+                        );
                     }
                 }
                 AppAction::CloseDialog => {
@@ -442,7 +458,9 @@ impl App {
                 ui.horizontal_top(|ui| {
                     assign_if_some!(action, self.show_left_panel_create_protmp_button(ui));
 
-                    assign_if_some!(action, self.show_left_panel_model_selector(ui))
+                    assign_if_some!(action, self.show_left_panel_model_selector(ui));
+
+                    self.show_left_panel_sort_mode_selector(ui);
                 });
 
                 ui.separator();
@@ -557,6 +575,85 @@ impl App {
         action
     }
 
+    fn show_left_panel_sort_mode_selector(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal(|ui| {
+            ui.label("Sort by:");
+
+            egui::ComboBox::from_id_salt("sort_mode_selector")
+                .selected_text(match self.sort_mode {
+                    SortMode::InsertionOrder => "insertion",
+                    SortMode::HistoryCount => "history count",
+                    SortMode::LastUsage => "last usage",
+                })
+                .show_ui(ui, |ui| {
+                    if ui
+                        .selectable_label(
+                            matches!(self.sort_mode, SortMode::InsertionOrder),
+                            "insertion (default)",
+                        )
+                        .clicked()
+                    {
+                        self.sort_mode = SortMode::InsertionOrder;
+                    }
+                    if ui
+                        .selectable_label(
+                            matches!(self.sort_mode, SortMode::HistoryCount),
+                            "history count",
+                        )
+                        .clicked()
+                    {
+                        self.sort_mode = SortMode::HistoryCount;
+                    }
+                    if ui
+                        .selectable_label(
+                            matches!(self.sort_mode, SortMode::LastUsage),
+                            "last usage",
+                        )
+                        .clicked()
+                    {
+                        self.sort_mode = SortMode::LastUsage;
+                    }
+                });
+        });
+    }
+
+    /// Sorts prompt indices based on the current sort mode
+    fn sort_prompt_indices(&self) -> Vec<usize> {
+        let mut prompt_indices = (0..self.prompts.len()).collect::<Vec<usize>>();
+
+        match self.sort_mode {
+            SortMode::HistoryCount => {
+                prompt_indices.sort_by(|&a, &b| {
+                    // First sort by history count (descending)
+                    let count_a = self.prompts[a].history_count();
+                    let count_b = self.prompts[b].history_count();
+
+                    count_b.cmp(&count_a)
+                });
+            }
+            SortMode::LastUsage => {
+                prompt_indices.sort_by(|&a, &b| {
+                    // Sort by last usage time (descending)
+                    let last_used_a = self.prompts[a].get_last_used_time();
+                    let last_used_b = self.prompts[b].get_last_used_time();
+
+                    // Handle cases where one or both might be None
+                    match (last_used_a, last_used_b) {
+                        (Some(time_a), Some(time_b)) => time_b.cmp(&time_a), // More recent first
+                        (Some(_), None) => std::cmp::Ordering::Less,         // a is more recent
+                        (None, Some(_)) => std::cmp::Ordering::Greater,      // b is more recent
+                        (None, None) => std::cmp::Ordering::Equal,           // both are equal
+                    }
+                });
+            }
+            SortMode::InsertionOrder => {
+                // No sorting - maintain insertion order
+            }
+        }
+
+        prompt_indices
+    }
+
     fn show_left_panel_prompts(
         &mut self,
         ui: &mut egui::Ui,
@@ -566,7 +663,11 @@ impl App {
         let mut action = None;
 
         ScrollArea::vertical().show(ui, |ui| {
-            for (idx, prompt) in self.prompts.iter().enumerate() {
+            // Sort prompts based on current sort mode
+            let prompt_indices = self.sort_prompt_indices();
+
+            for &idx in &prompt_indices {
+                let prompt = &self.prompts[idx];
                 let selected = self.view.is_prompt_selected(idx);
 
                 ui.add_space(3.0);
