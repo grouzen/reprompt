@@ -1,5 +1,6 @@
 use std::{collections::VecDeque, time::Instant};
 
+use egui::RichText;
 use egui::{
     Color32, CornerRadius, Frame, Key, KeyboardShortcut, Label, Layout, Modifiers, ScrollArea,
     Sense, Stroke, UiBuilder,
@@ -148,15 +149,8 @@ impl Prompt {
                             .fill(fill_style)
                             .show(ui, |ui| {
                                 ui.horizontal(|ui| {
-                                    // Show history count next to title
-                                    let mut title_with_count = self.title.clone();
-                                    if !self.history.is_empty() {
-                                        title_with_count
-                                            .push_str(&format!(" ({})", self.history.len()));
-                                    }
-                                    let label_response = ui.add(egui::Label::wrap(
-                                        egui::Label::new(&title_with_count),
-                                    ));
+                                    let label_response =
+                                        ui.add(egui::Label::wrap(egui::Label::new(&self.title)));
 
                                     ui.with_layout(Layout::right_to_left(egui::Align::Min), |ui| {
                                         let remove_response = ui.add_enabled(
@@ -173,6 +167,9 @@ impl Prompt {
                                                 .small()
                                                 .stroke(Stroke::NONE),
                                         );
+
+                                        let count_text = format!("{:3}", self.history.len());
+                                        ui.add(egui::Label::new(RichText::new(count_text)));
 
                                         if remove_response.on_hover_text("Remove prompt").clicked()
                                         {
