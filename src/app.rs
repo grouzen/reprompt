@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use egui::{Color32, Layout, ScrollArea, Stroke};
 use egui_commonmark::CommonMarkCache;
 use egui_modal::Modal;
@@ -39,7 +41,7 @@ pub struct App {
     #[serde(skip)]
     tokio_runtime: runtime::Runtime,
     #[serde(skip)]
-    ollama_client: OllamaClient,
+    ollama_client: Arc<OllamaClient>,
     #[serde(skip)]
     commonmark_cache: CommonMarkCache,
     #[serde(skip)]
@@ -56,7 +58,7 @@ impl Default for App {
                 .enable_all()
                 .build()
                 .unwrap(),
-            ollama_client: OllamaClient::new(Ollama::default()),
+            ollama_client: Arc::new(OllamaClient::new(Ollama::default())),
             ollama_models: Default::default(),
             commonmark_cache: CommonMarkCache::default(),
             sort_mode: SortMode::InsertionOrder,
