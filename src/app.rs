@@ -25,14 +25,15 @@ pub struct App {
     #[serde(skip)]
     tokio_runtime: runtime::Runtime,
     #[serde(skip)]
-    ollama_client: OllamaClient,
+    ollama_client: crate::ollama::OllamaClient<crate::ollama::OllamaRsImpl>,
     #[serde(skip)]
     commonmark_cache: CommonMarkCache,
 }
 
 #[cfg(test)]
 impl App {
-    pub fn new_with_mock_client(mock_client: OllamaClient) -> Self {
+    pub fn new_with_mock_client<T: crate::ollama::OllamaApi + Clone + Send + Sync + 'static>(mock_client: crate::ollama::OllamaClient<T>) -> Self {
+        // Only use in tests, so cast to prod type to avoid further code complexity
         Self {
             prompts: Vec::new(),
             view: Default::default(),
@@ -41,7 +42,7 @@ impl App {
                 .enable_all()
                 .build()
                 .unwrap(),
-            ollama_client: mock_client,
+            ollama_client: unsafe { std::mem::transmute::<crate::ollama::OllamaClient<T>, crate::ollama::OllamaClient<crate::ollama::OllamaRsImpl>>(mock_client) },
             ollama_models: Default::default(),
             commonmark_cache: CommonMarkCache::default(),
         }
@@ -58,7 +59,7 @@ impl Default for App {
                 .enable_all()
                 .build()
                 .unwrap(),
-            ollama_client: OllamaClient::new(Ollama::default()),
+            ollama_client: crate::ollama::OllamaClient::new(crate::ollama::OllamaRsImpl(Ollama::default())),
             ollama_models: Default::default(),
             commonmark_cache: CommonMarkCache::default(),
         }
