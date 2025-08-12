@@ -60,7 +60,7 @@ impl Default for PromptResponse {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug, PartialEq)]
 pub enum PromptState {
     #[default]
     Idle,
@@ -362,7 +362,7 @@ impl Prompt {
         input: String,
         local_model: &LocalModel,
         rt: &runtime::Runtime,
-        ollama_client: &OllamaClient,
+        ollama_client: &crate::ollama::OllamaClient<crate::ollama::OllamaRsImpl>,
     ) {
         self.state = PromptState::Generating;
 
@@ -377,7 +377,7 @@ impl Prompt {
         history_idx: usize,
         local_model: &LocalModel,
         rt: &runtime::Runtime,
-        ollama_client: &OllamaClient,
+        ollama_client: &crate::ollama::OllamaClient<crate::ollama::OllamaRsImpl>,
     ) {
         if let Some(original_response) = self.history.get(history_idx) {
             let input = original_response.input.clone();
@@ -390,7 +390,7 @@ impl Prompt {
         question: String,
         local_model: &LocalModel,
         rt: &runtime::Runtime,
-        ollama_client: OllamaClient,
+        ollama_client: crate::ollama::OllamaClient<crate::ollama::OllamaRsImpl>,
     ) {
         let handle = self.ask_flower.handle();
         let prompt = format!("{}:\n{}", self.content, question);
