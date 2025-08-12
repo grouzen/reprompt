@@ -1,6 +1,6 @@
 # Reprompt
 
-![Reprompt Logo](docs/logo/reprompt-logo-enhanced.svg)
+![Reprompt Logo](docs/logo/reprompt-high-resolution-logo.png)
 
 - :pencil: Ever stuck typing the same prompt over and over?
 - :computer: Reprompt is a user-friendly desktop application that simplifies the process of repeatedly asking questions to your local [Ollama](https://ollama.com/) model.  
