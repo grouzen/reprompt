@@ -239,27 +239,27 @@ impl App {
                     }
                 }
                 AppAction::GeneratePromptResponse { idx, input } => {
-                    if let Some(selected_model) = &self.ollama_models.selected {
-                        if let Some(prompt) = self.prompts.get_mut(idx) {
-                            prompt.generate_response(
-                                input,
-                                selected_model,
-                                &self.tokio_runtime,
-                                &self.ollama_client,
-                            );
-                        }
+                    if let Some(selected_model) = &self.ollama_models.selected
+                        && let Some(prompt) = self.prompts.get_mut(idx)
+                    {
+                        prompt.generate_response(
+                            input,
+                            selected_model,
+                            &self.tokio_runtime,
+                            &self.ollama_client,
+                        );
                     }
                 }
                 AppAction::RegeneratePromptResponse { idx, history_idx } => {
-                    if let Some(selected_model) = &self.ollama_models.selected {
-                        if let Some(prompt) = self.prompts.get_mut(idx) {
-                            prompt.regenerate_response(
-                                history_idx,
-                                selected_model,
-                                &self.tokio_runtime,
-                                &self.ollama_client,
-                            );
-                        }
+                    if let Some(selected_model) = &self.ollama_models.selected
+                        && let Some(prompt) = self.prompts.get_mut(idx)
+                    {
+                        prompt.regenerate_response(
+                            history_idx,
+                            selected_model,
+                            &self.tokio_runtime,
+                            &self.ollama_client,
+                        );
                     }
                 }
                 AppAction::CloseDialog => {

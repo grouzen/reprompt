@@ -169,6 +169,7 @@ impl Prompt {
                                         );
 
                                         let count_text = format!("{:3}", self.history.len());
+
                                         ui.add(egui::Label::new(RichText::new(count_text)));
 
                                         if remove_response.on_hover_text("Remove prompt").clicked()
@@ -355,15 +356,12 @@ impl Prompt {
 
                                             if copy_response
                                                 .on_hover_text("Copy response")
-                                                .clicked()
-                                            {
-                                                if let Err(e) = crate::copy_to_clipboard(&prompt_response.output) {
+                                                .clicked() && let Err(e) = crate::copy_to_clipboard(&prompt_response.output) {
                                                     action = Some(AppAction::ShowErrorDialog {
                                                         title: "Copy Error".to_string(),
                                                         message: format!("Failed to copy to clipboard: {e}"),
                                                     });
-                                                }
-                                            }
+                                                };
                                         });
                                     },
                                 );
