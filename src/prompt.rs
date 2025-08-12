@@ -151,10 +151,12 @@ impl Prompt {
                                     // Show history count next to title
                                     let mut title_with_count = self.title.clone();
                                     if !self.history.is_empty() {
-                                        title_with_count.push_str(&format!(" ({})", self.history.len()));
+                                        title_with_count
+                                            .push_str(&format!(" ({})", self.history.len()));
                                     }
-                                    let label_response =
-                                        ui.add(egui::Label::wrap(egui::Label::new(&title_with_count)));
+                                    let label_response = ui.add(egui::Label::wrap(
+                                        egui::Label::new(&title_with_count),
+                                    ));
 
                                     ui.with_layout(Layout::right_to_left(egui::Align::Min), |ui| {
                                         let remove_response = ui.add_enabled(
