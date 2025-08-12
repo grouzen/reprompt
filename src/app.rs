@@ -453,31 +453,9 @@ impl App {
                 ui.horizontal_top(|ui| {
                     assign_if_some!(action, self.show_left_panel_create_protmp_button(ui));
 
-                    assign_if_some!(action, self.show_left_panel_model_selector(ui))
-                });
+                    assign_if_some!(action, self.show_left_panel_model_selector(ui));
 
-                // Add sort button
-                ui.horizontal(|ui| {
-                    if ui
-                        .add(
-                            egui::Button::new(match self.sort_mode {
-                                SortMode::HistoryCount => "⬇️ Sort by History Count",
-                                SortMode::LastUsage => "⬇️ Sort by Last Usage",
-                                SortMode::InsertionOrder => "⬇️ Sort by Insertion Order",
-                            })
-                            .fill(Color32::TRANSPARENT)
-                            .small()
-                            .stroke(Stroke::NONE),
-                        )
-                        .on_hover_text("Toggle sorting mode")
-                        .clicked()
-                    {
-                        self.sort_mode = match self.sort_mode {
-                            SortMode::HistoryCount => SortMode::LastUsage,
-                            SortMode::LastUsage => SortMode::InsertionOrder,
-                            SortMode::InsertionOrder => SortMode::HistoryCount,
-                        };
-                    }
+                    self.show_left_panel_sort_mode_selector(ui);
                 });
 
                 ui.separator();
@@ -569,6 +547,48 @@ impl App {
         }
 
         action
+    }
+
+    fn show_left_panel_sort_mode_selector(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal(|ui| {
+            ui.label("Sort by:");
+
+            egui::ComboBox::from_id_salt("sort_mode_selector")
+                .selected_text(match self.sort_mode {
+                    SortMode::InsertionOrder => "insertion",
+                    SortMode::HistoryCount => "history count",
+                    SortMode::LastUsage => "last usage",
+                })
+                .show_ui(ui, |ui| {
+                    if ui
+                        .selectable_label(
+                            matches!(self.sort_mode, SortMode::InsertionOrder),
+                            "insertion (default)",
+                        )
+                        .clicked()
+                    {
+                        self.sort_mode = SortMode::InsertionOrder;
+                    }
+                    if ui
+                        .selectable_label(
+                            matches!(self.sort_mode, SortMode::HistoryCount),
+                            "history count",
+                        )
+                        .clicked()
+                    {
+                        self.sort_mode = SortMode::HistoryCount;
+                    }
+                    if ui
+                        .selectable_label(
+                            matches!(self.sort_mode, SortMode::LastUsage),
+                            "last usage",
+                        )
+                        .clicked()
+                    {
+                        self.sort_mode = SortMode::LastUsage;
+                    }
+                });
+        });
     }
 
     /// Sorts prompt indices based on the current sort mode
