@@ -531,6 +531,7 @@ impl App {
                     .small()
                     .stroke(Stroke::NONE),
             )
+            .on_hover_cursor(egui::CursorIcon::PointingHand)
             .on_hover_text("Create new prompt")
             .clicked()
         {
@@ -565,6 +566,7 @@ impl App {
                         .small()
                         .stroke(Stroke::NONE),
                 )
+                .on_hover_cursor(egui::CursorIcon::PointingHand)
                 .on_hover_text("Reload models")
                 .clicked()
             {

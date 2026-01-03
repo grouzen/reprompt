@@ -180,11 +180,11 @@ impl View {
                 )
                 .fill(Color32::from_rgb(33, 54, 84));
 
-                if ui.add(cancel_button).clicked() {
+                if ui.add(cancel_button).on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
                     action = Some(AppAction::CancelPromptModification);
                 }
 
-                if ui.add(ok_button).clicked() && !title.is_empty() && !content.is_empty() {
+                if ui.add(ok_button).on_hover_cursor(egui::CursorIcon::PointingHand).clicked() && !title.is_empty() && !content.is_empty() {
                     action = Some(ok_action);
                 };
             },
