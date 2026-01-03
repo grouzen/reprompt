@@ -353,8 +353,8 @@ impl Prompt {
                                             &prompt_response.output,
                                         );
 
-                                        // Add copy button at the bottom right
-                                        ui.with_layout(Layout::right_to_left(egui::Align::Min), |ui| {
+                                        // Add copy button at the bottom left
+                                        ui.with_layout(Layout::left_to_right(egui::Align::Min), |ui| {
                                             let copy_response = ui.add(
                                                 egui::Button::new("📋")
                                                     .fill(Color32::TRANSPARENT)
