@@ -16,17 +16,12 @@ use crate::{
 pub const TITLE: &str = "Reprompt";
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, PartialEq, Eq, Default)]
 pub enum SortMode {
     HistoryCount,
     LastUsage,
+    #[default]
     InsertionOrder,
-}
-
-impl Default for SortMode {
-    fn default() -> Self {
-        Self::InsertionOrder
-    }
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -531,6 +526,7 @@ impl App {
                     .small()
                     .stroke(Stroke::NONE),
             )
+            .on_hover_cursor(egui::CursorIcon::PointingHand)
             .on_hover_text("Create new prompt")
             .clicked()
         {
@@ -565,6 +561,7 @@ impl App {
                         .small()
                         .stroke(Stroke::NONE),
                 )
+                .on_hover_cursor(egui::CursorIcon::PointingHand)
                 .on_hover_text("Reload models")
                 .clicked()
             {
