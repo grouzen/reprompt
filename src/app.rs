@@ -37,7 +37,6 @@ pub struct App {
     ollama_client: OllamaClient,
     #[serde(skip)]
     commonmark_cache: CommonMarkCache,
-    #[serde(skip)]
     sort_mode: SortMode,
 }
 
