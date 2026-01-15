@@ -556,10 +556,7 @@ impl App {
         let mut action = None;
 
         if ui
-            .add(
-                egui::Button::new("➕ Add Prompt")
-                    .stroke(Stroke::NONE),
-            )
+            .add(egui::Button::new("➕ Add Prompt").stroke(Stroke::NONE))
             .on_hover_cursor(egui::CursorIcon::PointingHand)
             .on_hover_text("Create new prompt")
             .clicked()
