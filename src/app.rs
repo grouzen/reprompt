@@ -482,7 +482,7 @@ impl App {
             .max_width(max_width)
             .min_width(min_width)
             .show(ctx, |ui| {
-                ui.add_space(6.0);
+                ui.add_space(20.0);
 
                 ui.horizontal_top(|ui| {
                     assign_if_some!(action, self.show_left_panel_create_protmp_button(ui));
@@ -492,6 +492,8 @@ impl App {
                     self.show_left_panel_sort_mode_selector(ui);
                 });
 
+                ui.add_space(6.0);
+
                 ui.separator();
 
                 assign_if_some!(
@@ -500,12 +502,12 @@ impl App {
                 );
 
                 ui.with_layout(Layout::bottom_up(egui::Align::Min), |ui| {
-                    ui.add_space(6.0);
+                    ui.add_space(12.0);
 
                     ui.horizontal(|ui| {
                         global_theme_switch(ui);
 
-                        ui.add_space(6.0);
+                        ui.add_space(12.0);
 
                         // UI Scale control
                         ui.horizontal(|ui| {
@@ -525,7 +527,7 @@ impl App {
                         });
                     });
 
-                    ui.add_space(6.0);
+                    ui.add_space(12.0);
 
                     // Version label (slightly smaller than default)
                     ui.label(egui::RichText::new(format!("v{VERSION}")).size(12.0));
@@ -701,7 +703,7 @@ impl App {
                 let prompt = &self.prompts[idx];
                 let selected = self.view.is_prompt_selected(idx);
 
-                ui.add_space(3.0);
+                ui.add_space(6.0);
 
                 assign_if_some!(action, prompt.show_left_panel(ui, selected, idx));
 
@@ -745,7 +747,8 @@ impl App {
 
         egui::CentralPanel::default().show(ctx, |ui| match self.view.main_panel {
             ViewMainPanel::Welcome => {
-                ui.add_space(20.0);
+                ui.add_space(40.0);
+
                 ui.with_layout(Layout::top_down(egui::Align::Center), |ui| {
                     ui.label("Welcome to the Reprompt app! Please select a model and add prompts to get started.");
                 });

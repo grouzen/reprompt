@@ -153,6 +153,7 @@ impl Prompt {
                         };
 
                         Frame::group(ui.style())
+                            .inner_margin(egui::Margin::same(10))
                             .corner_radius(CornerRadius::same(6))
                             .stroke(Stroke::new(2.0, stroke_style_color))
                             .fill(fill_style)
@@ -224,6 +225,8 @@ impl Prompt {
         let mut action = None;
         let is_input_interactive = !self.state.is_generating();
 
+        ui.add_space(16.0);
+
         ui.with_layout(
             Layout::left_to_right(egui::Align::TOP).with_main_justify(true),
             |ui| {
@@ -240,6 +243,8 @@ impl Prompt {
                 }
             },
         );
+
+        ui.add_space(6.0);
 
         ui.separator();
 
@@ -274,13 +279,15 @@ impl Prompt {
 
         ScrollArea::both().auto_shrink(false).show(ui, |ui| {
             for (history_idx, prompt_response) in self.history.iter().enumerate() {
-                ui.add_space(3.0);
+                ui.add_space(6.0);
+
                 ui.with_layout(
                     Layout::left_to_right(egui::Align::TOP)
                         .with_main_justify(true)
                         .with_main_align(egui::Align::LEFT),
                     |ui| {
                         Frame::group(ui.style())
+                            .inner_margin(egui::Margin::same(10))
                             .corner_radius(CornerRadius::same(6))
                             .stroke(Stroke::new(1.0, ui.style().visuals.window_stroke.color))
                             .show(ui, |ui| {
@@ -366,6 +373,8 @@ impl Prompt {
                                             &prompt_response.output,
                                         );
 
+                                        ui.add_space(6.0);
+
                                         // Add copy button at the bottom left with feedback
                                         ui.with_layout(Layout::left_to_right(egui::Align::Min), |ui| {
                                             let copy_response = ui.add(
@@ -408,7 +417,7 @@ impl Prompt {
                                                 && feedback.response_created_at
                                                     == prompt_response.created_at
                                             {
-                                                ui.add_space(6.0);
+                                                // ui.add_space(6.0);
                                                 ui.label(
                                                     RichText::new("Copied!")
                                                         .color(Color32::from_rgb(80, 200, 120))
