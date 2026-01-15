@@ -133,7 +133,7 @@ impl View {
                     title,
                     content,
                     AppAction::EditPrompt,
-                    "Edit",
+                    "Save",
                 )
             );
         }

@@ -1,4 +1,9 @@
-use std::{collections::VecDeque, time::Instant};
+use std::{
+    collections::VecDeque,
+    time::{Duration, Instant},
+};
+
+use chrono::{DateTime, Local};
 
 use egui::RichText;
 use egui::{
@@ -12,6 +17,8 @@ use tokio::runtime;
 
 use crate::{app::AppAction, assign_if_some, ollama::OllamaClient};
 
+const COPY_FEEDBACK_DURATION_MS: u64 = 1500;
+
 #[derive(serde::Serialize, serde::Deserialize)]
 #[serde(default)]
 pub struct Prompt {
@@ -23,6 +30,8 @@ pub struct Prompt {
     ask_flower: PromptAskFlower,
     #[serde(skip)]
     pub state: PromptState,
+    #[serde(skip)]
+    copy_feedback: Option<CopyFeedback>,
 }
 
 impl Default for Prompt {
@@ -34,6 +43,7 @@ impl Default for Prompt {
             new_input: Default::default(),
             ask_flower: PromptAskFlower::new(1),
             state: Default::default(),
+            copy_feedback: None,
         }
     }
 }
@@ -48,8 +58,7 @@ struct PromptResponse {
     local_model_name: String,
     #[serde(skip)]
     requested_at: Instant,
-    #[serde(skip)]
-    created_at: Instant,
+    created_at: DateTime<Local>,
 }
 
 impl Default for PromptResponse {
@@ -59,7 +68,7 @@ impl Default for PromptResponse {
             output: Default::default(),
             local_model_name: "unknown_model".to_owned(),
             requested_at: Instant::now(),
-            created_at: Instant::now(),
+            created_at: Local::now(),
         }
     }
 }
@@ -106,7 +115,7 @@ impl Prompt {
         self.history.len()
     }
 
-    pub fn get_last_used_time(&self) -> Option<Instant> {
+    pub fn get_last_used_time(&self) -> Option<DateTime<Local>> {
         // Find the most recently created response in history
         self.history
             .iter()
@@ -144,6 +153,7 @@ impl Prompt {
                         };
 
                         Frame::group(ui.style())
+                            .inner_margin(egui::Margin::same(10))
                             .corner_radius(CornerRadius::same(6))
                             .stroke(Stroke::new(2.0, stroke_style_color))
                             .fill(fill_style)
@@ -153,24 +163,20 @@ impl Prompt {
                                         ui.add(egui::Label::wrap(egui::Label::new(&self.title)));
 
                                     ui.with_layout(Layout::right_to_left(egui::Align::Min), |ui| {
-                                        let remove_response = ui
-                                            .add_enabled(
-                                                !self.state.is_generating(),
-                                                egui::Button::new("❌")
-                                                    .fill(Color32::TRANSPARENT)
-                                                    .small()
-                                                    .stroke(Stroke::NONE),
-                                            )
-                                            .on_hover_cursor(egui::CursorIcon::PointingHand);
+                                        let remove_response = ui.add_enabled(
+                                            !self.state.is_generating(),
+                                            egui::Button::new("❌")
+                                                .fill(Color32::TRANSPARENT)
+                                                .small()
+                                                .stroke(Stroke::NONE),
+                                        );
 
-                                        let edit_response = ui
-                                            .add(
-                                                egui::Button::new("\u{270f}")
-                                                    .fill(Color32::TRANSPARENT)
-                                                    .small()
-                                                    .stroke(Stroke::NONE),
-                                            )
-                                            .on_hover_cursor(egui::CursorIcon::PointingHand);
+                                        let edit_response = ui.add(
+                                            egui::Button::new("\u{270f}")
+                                                .fill(Color32::TRANSPARENT)
+                                                .small()
+                                                .stroke(Stroke::NONE),
+                                        );
 
                                         let count_text = format!("{:3}", self.history.len());
 
@@ -219,16 +225,26 @@ impl Prompt {
         let mut action = None;
         let is_input_interactive = !self.state.is_generating();
 
+        ui.add_space(16.0);
+
         ui.with_layout(
             Layout::left_to_right(egui::Align::TOP).with_main_justify(true),
             |ui| {
-                egui::TextEdit::multiline(&mut self.new_input)
+                let text_edit = egui::TextEdit::multiline(&mut self.new_input)
                     .hint_text(format!("Ask for the following prompt: {}", self.content))
                     .interactive(is_input_interactive)
-                    .return_key(KeyboardShortcut::new(Modifiers::SHIFT, Key::Enter))
-                    .show(ui);
+                    .return_key(KeyboardShortcut::new(Modifiers::SHIFT, Key::Enter));
+
+                let response = text_edit.show(ui);
+
+                // Request focus when prompt is first displayed or navigated to
+                if !is_modal_shown && is_input_interactive {
+                    response.response.request_focus();
+                }
             },
         );
+
+        ui.add_space(6.0);
 
         ui.separator();
 
@@ -241,6 +257,7 @@ impl Prompt {
                 idx,
                 input: self.new_input.clone(),
             });
+            self.new_input.clear();
         }
 
         if self.ask_flower.is_active() {
@@ -253,7 +270,7 @@ impl Prompt {
     }
 
     fn show_prompt_history(
-        &self,
+        &mut self,
         ui: &mut egui::Ui,
         idx: usize,
         commonmark_cache: &mut CommonMarkCache,
@@ -261,14 +278,16 @@ impl Prompt {
         let mut action = None;
 
         ScrollArea::both().auto_shrink(false).show(ui, |ui| {
-            for (history_idx, prompt_response ) in self.history.iter().enumerate() {
-                ui.add_space(3.0);
+            for (history_idx, prompt_response) in self.history.iter().enumerate() {
+                ui.add_space(6.0);
+
                 ui.with_layout(
                     Layout::left_to_right(egui::Align::TOP)
                         .with_main_justify(true)
                         .with_main_align(egui::Align::LEFT),
                     |ui| {
                         Frame::group(ui.style())
+                            .inner_margin(egui::Margin::same(10))
                             .corner_radius(CornerRadius::same(6))
                             .stroke(Stroke::new(1.0, ui.style().visuals.window_stroke.color))
                             .show(ui, |ui| {
@@ -280,6 +299,11 @@ impl Prompt {
                                         ui.horizontal(|ui| {
                                             ui.label("🖳");
                                             ui.label(&prompt_response.local_model_name);
+                                            ui.label(
+                                                RichText::new(
+                                                    format!(" {} ", prompt_response.created_at.format("%Y-%m-%d %H:%M:%S"))
+                                                ).weak()
+                                            );
 
                                             ui.with_layout(
                                                 Layout::right_to_left(egui::Align::Min),
@@ -290,8 +314,7 @@ impl Prompt {
                                                             .fill(Color32::TRANSPARENT)
                                                             .small()
                                                             .stroke(Stroke::NONE),
-                                                    )
-                                                    .on_hover_cursor(egui::CursorIcon::PointingHand);
+                                                    );
 
                                                     let regenerate_response = ui.add_enabled(
                                                         !self.state.is_generating(),
@@ -299,8 +322,7 @@ impl Prompt {
                                                             .fill(Color32::TRANSPARENT)
                                                             .small()
                                                             .stroke(Stroke::NONE),
-                                                    )
-                                                    .on_hover_cursor(egui::CursorIcon::PointingHand);
+                                                    );
 
                                                     if self.state.is_generating() && history_idx == 0
                                                         && ui.add_enabled(
@@ -309,9 +331,7 @@ impl Prompt {
                                                                 .fill(Color32::TRANSPARENT)
                                                                 .small()
                                                                 .stroke(Stroke::NONE),
-                                                        )
-                                                        .on_hover_cursor(egui::CursorIcon::PointingHand)
-                                                        .on_hover_text("Stop generation")
+                                                        ).on_hover_text("Stop generation")
                                                         .clicked() {
                                                             action = Some(AppAction::StopPromptGeneration(idx));
                                                     }
@@ -353,24 +373,57 @@ impl Prompt {
                                             &prompt_response.output,
                                         );
 
-                                        // Add copy button at the bottom right
-                                        ui.with_layout(Layout::right_to_left(egui::Align::Min), |ui| {
+                                        ui.add_space(6.0);
+
+                                        // Add copy button at the bottom left with feedback
+                                        ui.with_layout(Layout::left_to_right(egui::Align::Min), |ui| {
                                             let copy_response = ui.add(
                                                 egui::Button::new("📋")
                                                     .fill(Color32::TRANSPARENT)
                                                     .small()
                                                     .stroke(Stroke::NONE),
-                                            )
-                                            .on_hover_cursor(egui::CursorIcon::PointingHand);
+                                            );
 
                                             if copy_response
                                                 .on_hover_text("Copy response")
-                                                .clicked() && let Err(e) = crate::copy_to_clipboard(&prompt_response.output) {
-                                                    action = Some(AppAction::ShowErrorDialog {
-                                                        title: "Copy Error".to_string(),
-                                                        message: format!("Failed to copy to clipboard: {e}"),
-                                                    });
-                                                };
+                                                .clicked()
+                                            {
+                                                match crate::copy_to_clipboard(&prompt_response.output) {
+                                                    Ok(()) => {
+                                                        self.copy_feedback = Some(CopyFeedback::new(
+                                                            prompt_response.created_at,
+                                                        ));
+                                                    }
+                                                    Err(e) => {
+                                                        action = Some(AppAction::ShowErrorDialog {
+                                                            title: "Copy Error".to_string(),
+                                                            message: format!(
+                                                                "Failed to copy to clipboard: {e}"
+                                                            ),
+                                                        });
+                                                    }
+                                                }
+                                            }
+
+                                            if matches!(
+                                                self.copy_feedback.as_ref(),
+                                                Some(feedback) if !feedback.is_active()
+                                            ) {
+                                                self.copy_feedback = None;
+                                            }
+
+                                            if let Some(feedback) = self.copy_feedback.as_ref()
+                                                && feedback.is_active()
+                                                && feedback.response_created_at
+                                                    == prompt_response.created_at
+                                            {
+                                                // ui.add_space(6.0);
+                                                ui.label(
+                                                    RichText::new("Copied!")
+                                                        .color(Color32::from_rgb(80, 200, 120))
+                                                        .strong(),
+                                                );
+                                            }
                                         });
                                     },
                                 );
@@ -474,5 +527,23 @@ impl Prompt {
             });
 
         action
+    }
+}
+
+struct CopyFeedback {
+    response_created_at: DateTime<Local>,
+    triggered_at: Instant,
+}
+
+impl CopyFeedback {
+    fn new(response_created_at: DateTime<Local>) -> Self {
+        Self {
+            response_created_at,
+            triggered_at: Instant::now(),
+        }
+    }
+
+    fn is_active(&self) -> bool {
+        self.triggered_at.elapsed() <= Duration::from_millis(COPY_FEEDBACK_DURATION_MS)
     }
 }

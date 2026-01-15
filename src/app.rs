@@ -37,7 +37,6 @@ pub struct App {
     ollama_client: OllamaClient,
     #[serde(skip)]
     commonmark_cache: CommonMarkCache,
-    #[serde(skip)]
     sort_mode: SortMode,
 }
 
@@ -170,6 +169,7 @@ impl App {
 
     fn handle_keyboard_input(&self, ctx: &egui::Context) -> Option<AppAction> {
         let mut action = None;
+
         ctx.input(|i| {
             if i.modifiers.ctrl {
                 if i.key_pressed(egui::Key::Equals) || i.key_pressed(egui::Key::Plus) {
@@ -184,6 +184,37 @@ impl App {
                     if new_scale != self.ui_scale {
                         action = Some(AppAction::SetUIScale(new_scale));
                     }
+                }
+            } else if i.key_pressed(egui::Key::Tab) && !self.view.is_modal_shown() {
+                // Tab/Shift-Tab: Navigate between prompts
+                let prompt_indices = self.sort_prompt_indices();
+
+                if let ViewMainPanel::Prompt(current_idx) = self.view.main_panel {
+                    if !self.prompts.is_empty()
+                        && let Some(pos) = prompt_indices.iter().position(|&idx| idx == current_idx)
+                    {
+                        let next_idx = if i.modifiers.shift {
+                            // Shift-Tab: Previous prompt
+                            if pos > 0 {
+                                prompt_indices[pos - 1]
+                            } else {
+                                prompt_indices[prompt_indices.len() - 1]
+                            }
+                        } else {
+                            // Tab: Next prompt
+                            if pos < prompt_indices.len() - 1 {
+                                prompt_indices[pos + 1]
+                            } else {
+                                prompt_indices[0]
+                            }
+                        };
+
+                        action = Some(AppAction::SelectPrompt(next_idx));
+                    }
+                } else if !self.prompts.is_empty()
+                    && let Some(&first_idx) = prompt_indices.first()
+                {
+                    action = Some(AppAction::SelectPrompt(first_idx));
                 }
             }
         });
@@ -273,10 +304,12 @@ impl App {
                 }
                 AppAction::CreatePrompt => {
                     if let Some((title, content)) = self.view.get_add_prompt_modal_data() {
+                        let new_prompt_idx = self.prompts.len();
                         self.add_prompt(title.clone(), content.clone());
 
                         add_prompt_modal.close();
                         self.view.close_modal();
+                        self.view.select_prompt(new_prompt_idx);
                     }
                 }
                 AppAction::OpenRemovePromptDialog(idx) => {
@@ -310,6 +343,7 @@ impl App {
 
                         edit_prompt_modal.close();
                         self.view.close_modal();
+                        self.view.select_prompt(idx);
                     }
                 }
                 AppAction::SelectPrompt(idx) => {
@@ -448,7 +482,7 @@ impl App {
             .max_width(max_width)
             .min_width(min_width)
             .show(ctx, |ui| {
-                ui.add_space(6.0);
+                ui.add_space(20.0);
 
                 ui.horizontal_top(|ui| {
                     assign_if_some!(action, self.show_left_panel_create_protmp_button(ui));
@@ -458,6 +492,8 @@ impl App {
                     self.show_left_panel_sort_mode_selector(ui);
                 });
 
+                ui.add_space(6.0);
+
                 ui.separator();
 
                 assign_if_some!(
@@ -466,12 +502,12 @@ impl App {
                 );
 
                 ui.with_layout(Layout::bottom_up(egui::Align::Min), |ui| {
-                    ui.add_space(6.0);
+                    ui.add_space(12.0);
 
                     ui.horizontal(|ui| {
                         global_theme_switch(ui);
 
-                        ui.add_space(6.0);
+                        ui.add_space(12.0);
 
                         // UI Scale control
                         ui.horizontal(|ui| {
@@ -491,7 +527,7 @@ impl App {
                         });
                     });
 
-                    ui.add_space(6.0);
+                    ui.add_space(12.0);
 
                     // Version label (slightly smaller than default)
                     ui.label(egui::RichText::new(format!("v{VERSION}")).size(12.0));
@@ -520,12 +556,7 @@ impl App {
         let mut action = None;
 
         if ui
-            .add(
-                egui::Button::new("➕")
-                    .fill(Color32::TRANSPARENT)
-                    .small()
-                    .stroke(Stroke::NONE),
-            )
+            .add(egui::Button::new("➕ Add Prompt").stroke(Stroke::NONE))
             .on_hover_cursor(egui::CursorIcon::PointingHand)
             .on_hover_text("Create new prompt")
             .clicked()
@@ -667,7 +698,7 @@ impl App {
                 let prompt = &self.prompts[idx];
                 let selected = self.view.is_prompt_selected(idx);
 
-                ui.add_space(3.0);
+                ui.add_space(6.0);
 
                 assign_if_some!(action, prompt.show_left_panel(ui, selected, idx));
 
@@ -711,7 +742,8 @@ impl App {
 
         egui::CentralPanel::default().show(ctx, |ui| match self.view.main_panel {
             ViewMainPanel::Welcome => {
-                ui.add_space(20.0);
+                ui.add_space(40.0);
+
                 ui.with_layout(Layout::top_down(egui::Align::Center), |ui| {
                     ui.label("Welcome to the Reprompt app! Please select a model and add prompts to get started.");
                 });
