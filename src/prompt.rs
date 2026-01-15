@@ -226,11 +226,17 @@ impl Prompt {
         ui.with_layout(
             Layout::left_to_right(egui::Align::TOP).with_main_justify(true),
             |ui| {
-                egui::TextEdit::multiline(&mut self.new_input)
+                let text_edit = egui::TextEdit::multiline(&mut self.new_input)
                     .hint_text(format!("Ask for the following prompt: {}", self.content))
                     .interactive(is_input_interactive)
-                    .return_key(KeyboardShortcut::new(Modifiers::SHIFT, Key::Enter))
-                    .show(ui);
+                    .return_key(KeyboardShortcut::new(Modifiers::SHIFT, Key::Enter));
+
+                let response = text_edit.show(ui);
+
+                // Request focus when prompt is first displayed or navigated to
+                if !is_modal_shown && is_input_interactive {
+                    response.response.request_focus();
+                }
             },
         );
 

@@ -169,6 +169,7 @@ impl App {
 
     fn handle_keyboard_input(&self, ctx: &egui::Context) -> Option<AppAction> {
         let mut action = None;
+
         ctx.input(|i| {
             if i.modifiers.ctrl {
                 if i.key_pressed(egui::Key::Equals) || i.key_pressed(egui::Key::Plus) {
@@ -183,6 +184,37 @@ impl App {
                     if new_scale != self.ui_scale {
                         action = Some(AppAction::SetUIScale(new_scale));
                     }
+                }
+            } else if i.key_pressed(egui::Key::Tab) && !self.view.is_modal_shown() {
+                // Tab/Shift-Tab: Navigate between prompts
+                let prompt_indices = self.sort_prompt_indices();
+
+                if let ViewMainPanel::Prompt(current_idx) = self.view.main_panel {
+                    if !self.prompts.is_empty()
+                        && let Some(pos) = prompt_indices.iter().position(|&idx| idx == current_idx)
+                    {
+                        let next_idx = if i.modifiers.shift {
+                            // Shift-Tab: Previous prompt
+                            if pos > 0 {
+                                prompt_indices[pos - 1]
+                            } else {
+                                prompt_indices[prompt_indices.len() - 1]
+                            }
+                        } else {
+                            // Tab: Next prompt
+                            if pos < prompt_indices.len() - 1 {
+                                prompt_indices[pos + 1]
+                            } else {
+                                prompt_indices[0]
+                            }
+                        };
+
+                        action = Some(AppAction::SelectPrompt(next_idx));
+                    }
+                } else if !self.prompts.is_empty()
+                    && let Some(&first_idx) = prompt_indices.first()
+                {
+                    action = Some(AppAction::SelectPrompt(first_idx));
                 }
             }
         });
