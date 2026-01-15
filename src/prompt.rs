@@ -252,6 +252,7 @@ impl Prompt {
                 idx,
                 input: self.new_input.clone(),
             });
+            self.new_input.clear();
         }
 
         if self.ask_flower.is_active() {
