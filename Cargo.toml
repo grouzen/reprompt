@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 arboard = "3.3.0"
 anyhow = "1.0.98"
+chrono = { version = "0.4", features = ["serde"] }
 eframe = { version = "0.31.1", features = ["default_fonts", "glow", "persistence", "wayland", "x11"], default-features = false }
 egui = "0.31.1"
 egui-modal = { git = "https://github.com/zeozeozeo/egui-modal.git", branch = "egui-0.31" }

@@ -3,6 +3,8 @@ use std::{
     time::{Duration, Instant},
 };
 
+use chrono::{DateTime, Local};
+
 use egui::RichText;
 use egui::{
     Color32, CornerRadius, Frame, Key, KeyboardShortcut, Label, Layout, Modifiers, ScrollArea,
@@ -56,8 +58,7 @@ struct PromptResponse {
     local_model_name: String,
     #[serde(skip)]
     requested_at: Instant,
-    #[serde(skip)]
-    created_at: Instant,
+    created_at: DateTime<Local>,
 }
 
 impl Default for PromptResponse {
@@ -67,7 +68,7 @@ impl Default for PromptResponse {
             output: Default::default(),
             local_model_name: "unknown_model".to_owned(),
             requested_at: Instant::now(),
-            created_at: Instant::now(),
+            created_at: Local::now(),
         }
     }
 }
@@ -114,7 +115,7 @@ impl Prompt {
         self.history.len()
     }
 
-    pub fn get_last_used_time(&self) -> Option<Instant> {
+    pub fn get_last_used_time(&self) -> Option<DateTime<Local>> {
         // Find the most recently created response in history
         self.history
             .iter()
@@ -290,6 +291,11 @@ impl Prompt {
                                         ui.horizontal(|ui| {
                                             ui.label("🖳");
                                             ui.label(&prompt_response.local_model_name);
+                                            ui.label(
+                                                RichText::new(
+                                                    format!(" {} ", prompt_response.created_at.format("%Y-%m-%d %H:%M:%S"))
+                                                ).weak()
+                                            );
 
                                             ui.with_layout(
                                                 Layout::right_to_left(egui::Align::Min),
@@ -515,12 +521,12 @@ impl Prompt {
 }
 
 struct CopyFeedback {
-    response_created_at: Instant,
+    response_created_at: DateTime<Local>,
     triggered_at: Instant,
 }
 
 impl CopyFeedback {
-    fn new(response_created_at: Instant) -> Self {
+    fn new(response_created_at: DateTime<Local>) -> Self {
         Self {
             response_created_at,
             triggered_at: Instant::now(),
