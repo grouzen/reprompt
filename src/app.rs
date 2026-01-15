@@ -557,9 +557,7 @@ impl App {
 
         if ui
             .add(
-                egui::Button::new("➕")
-                    .fill(Color32::TRANSPARENT)
-                    .small()
+                egui::Button::new("➕ Add Prompt")
                     .stroke(Stroke::NONE),
             )
             .on_hover_cursor(egui::CursorIcon::PointingHand)
