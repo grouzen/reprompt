@@ -304,10 +304,12 @@ impl App {
                 }
                 AppAction::CreatePrompt => {
                     if let Some((title, content)) = self.view.get_add_prompt_modal_data() {
+                        let new_prompt_idx = self.prompts.len();
                         self.add_prompt(title.clone(), content.clone());
 
                         add_prompt_modal.close();
                         self.view.close_modal();
+                        self.view.select_prompt(new_prompt_idx);
                     }
                 }
                 AppAction::OpenRemovePromptDialog(idx) => {
@@ -341,6 +343,7 @@ impl App {
 
                         edit_prompt_modal.close();
                         self.view.close_modal();
+                        self.view.select_prompt(idx);
                     }
                 }
                 AppAction::SelectPrompt(idx) => {
