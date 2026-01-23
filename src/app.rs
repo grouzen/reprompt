@@ -512,15 +512,15 @@ impl App {
                         // UI Scale control
                         ui.horizontal(|ui| {
                             let mut scale = self.ui_scale;
-                            if ui
+                            let response = ui
                                 .add(
                                     egui::Slider::new(&mut scale, 1.0..=2.5)
                                         .step_by(0.1)
                                         .show_value(false),
                                 )
-                                .on_hover_text("Use Ctrl- and Ctrl+ hotkeys")
-                                .changed()
-                            {
+                                .on_hover_text("Use Ctrl- and Ctrl+ hotkeys");
+
+                            if response.drag_stopped() {
                                 action = Some(AppAction::SetUIScale(scale));
                             }
                             ui.label(format!("{:.0}%", scale * 100.0));
