@@ -157,12 +157,12 @@ impl App {
     pub fn from_eframe_context(cc: &eframe::CreationContext<'_>) -> Self {
         eframe::storage_dir(TITLE);
 
-        let app: Self = match cc.storage {
+        let mut app: Self = match cc.storage {
             Some(storage) => eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default(),
             None => Default::default(),
         };
 
-        Self::set_scale(&cc.egui_ctx, app.ui_scale);
+        app.set_scale(&cc.egui_ctx, app.ui_scale);
 
         app
     }
@@ -174,13 +174,13 @@ impl App {
             if i.modifiers.ctrl {
                 if i.key_pressed(egui::Key::Equals) || i.key_pressed(egui::Key::Plus) {
                     // Ctrl+Plus: Increase scale by 0.1, clamped to max 2.5
-                    let new_scale = (self.ui_scale + 0.1).min(2.5);
+                    let new_scale = (self.ui_scale + 0.1).clamp(1.0, 2.5);
                     if new_scale != self.ui_scale {
                         action = Some(AppAction::SetUIScale(new_scale));
                     }
                 } else if i.key_pressed(egui::Key::Minus) {
                     // Ctrl+Minus: Decrease scale by 0.1, clamped to min 1.0
-                    let new_scale = (self.ui_scale - 0.1).max(1.0);
+                    let new_scale = (self.ui_scale - 0.1).clamp(1.0, 2.5);
                     if new_scale != self.ui_scale {
                         action = Some(AppAction::SetUIScale(new_scale));
                     }
@@ -221,8 +221,9 @@ impl App {
         action
     }
 
-    fn set_scale(ctx: &egui::Context, ui_scale: f32) {
-        ctx.set_zoom_factor(ui_scale);
+    fn set_scale(&mut self, ctx: &egui::Context, value: f32) {
+        self.ui_scale = value;
+        ctx.set_zoom_factor(self.ui_scale);
     }
 
     fn remove_prompt(&mut self, idx: usize) {
@@ -353,8 +354,9 @@ impl App {
                     self.ollama_models.selected = Some(local_model);
                 }
                 AppAction::SetUIScale(scale) => {
-                    self.ui_scale = scale;
-                    Self::set_scale(ctx, scale);
+                    let clamped_scale = scale.clamp(1.0, 2.5);
+
+                    self.set_scale(ctx, clamped_scale);
                 }
                 AppAction::ShowErrorDialog { title, message } => {
                     error_modal.open();
@@ -512,6 +514,7 @@ impl App {
                         // UI Scale control
                         ui.horizontal(|ui| {
                             let mut scale = self.ui_scale;
+
                             let response = ui
                                 .add(
                                     egui::Slider::new(&mut scale, 1.0..=2.5)
