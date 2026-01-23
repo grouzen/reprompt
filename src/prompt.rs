@@ -378,7 +378,7 @@ impl Prompt {
                                         // Add copy button at the bottom left with feedback
                                         ui.with_layout(Layout::left_to_right(egui::Align::Min), |ui| {
                                             let copy_response = ui.add(
-                                                egui::Button::new("📋")
+                                                egui::Button::new("🗐")
                                                     .fill(Color32::TRANSPARENT)
                                                     .small()
                                                     .stroke(Stroke::NONE),
