@@ -182,12 +182,19 @@ impl Prompt {
 
                                         ui.add(egui::Label::new(RichText::new(count_text)));
 
-                                        if remove_response.on_hover_text("Remove prompt").clicked()
+                                        if remove_response
+                                            .on_hover_cursor(egui::CursorIcon::PointingHand)
+                                            .on_hover_text("Remove prompt")
+                                            .clicked()
                                         {
                                             action = Some(AppAction::OpenRemovePromptDialog(idx));
                                         }
 
-                                        if edit_response.on_hover_text("Edit prompt").clicked() {
+                                        if edit_response
+                                            .on_hover_cursor(egui::CursorIcon::PointingHand)
+                                            .on_hover_text("Edit prompt")
+                                            .clicked()
+                                        {
                                             action = Some(AppAction::OpenEditPromptDialog(idx));
                                         }
                                     });
@@ -204,11 +211,10 @@ impl Prompt {
         );
         let response = response.response.union(response.inner);
 
-        response
-            .clone()
-            .on_hover_cursor(egui::CursorIcon::PointingHand);
-
-        if response.clicked() {
+        if response
+            .on_hover_cursor(egui::CursorIcon::PointingHand)
+            .clicked()
+        {
             action = Some(AppAction::SelectPrompt(idx));
         }
 
@@ -331,12 +337,15 @@ impl Prompt {
                                                                 .fill(Color32::TRANSPARENT)
                                                                 .small()
                                                                 .stroke(Stroke::NONE),
-                                                        ).on_hover_text("Stop generation")
+                                                        )
+                                                        .on_hover_cursor(egui::CursorIcon::PointingHand)
+                                                        .on_hover_text("Stop generation")
                                                         .clicked() {
                                                             action = Some(AppAction::StopPromptGeneration(idx));
                                                     }
 
                                                     if remove_response
+                                                        .on_hover_cursor(egui::CursorIcon::PointingHand)
                                                         .on_hover_text("Remove from prompt history")
                                                         .clicked()
                                                     {
@@ -344,6 +353,7 @@ impl Prompt {
                                                     }
 
                                                     if regenerate_response
+                                                        .on_hover_cursor(egui::CursorIcon::PointingHand)
                                                         .on_hover_text("Regenerate with current model")
                                                         .clicked()
                                                     {
@@ -385,6 +395,7 @@ impl Prompt {
                                             );
 
                                             if copy_response
+                                                .on_hover_cursor(egui::CursorIcon::PointingHand)
                                                 .on_hover_text("Copy response")
                                                 .clicked()
                                             {

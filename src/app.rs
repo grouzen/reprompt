@@ -521,6 +521,7 @@ impl App {
                                         .step_by(0.1)
                                         .show_value(false),
                                 )
+                                .on_hover_cursor(egui::CursorIcon::PointingHand)
                                 .on_hover_text("Use Ctrl- and Ctrl+ hotkeys");
 
                             if response.drag_stopped() {
