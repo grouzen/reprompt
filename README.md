@@ -1,5 +1,7 @@
 # Reprompt
 
+<img src="./docs/logo/logo-modern.png" width="30%" height="30%" alt="Do not reprompt yourself">
+
 - :pencil: Ever stuck typing the same prompt over and over?
 - :computer: Reprompt is a user-friendly desktop application that simplifies the process of repeatedly asking questions to your local [Ollama](https://ollama.com/) model.  
 - :key: For people who prioritize data privacy and security.  
