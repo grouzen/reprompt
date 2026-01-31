@@ -1,11 +1,15 @@
 # Reprompt
 
-![Reprompt Logo](docs/logo/reprompt-high-resolution-logo.png)
+<img src="./docs/logo/logo-modern.png" width="30%" height="30%" alt="Do not reprompt yourself">
+
+**Do not Reprompt yourself!**
 
 - :pencil: Ever stuck typing the same prompt over and over?
 - :computer: Reprompt is a user-friendly desktop application that simplifies the process of repeatedly asking questions to your local [Ollama](https://ollama.com/) model.  
 - :key: For people who prioritize data privacy and security.  
 - :microscope: Choose from any of your locally installed models, and ask away!  
+
+
 
 *** 
 :bulb: In case you're also experiencing difficulties connecting to your Ollama instance, I recommend checking out my other project **[Ollana](https://github.com/grouzen/ollana/)**
@@ -21,31 +25,7 @@
 
 ## Usage
 
-1. Create a prompt by specifying a title and a prompt text that will be prepended to each query. 
-
-![Clicking the create prompt button](docs/screenshots/prompt-creation-button.png)
-![Prompt creation dialog](docs/screenshots/prompt-creation-dialog.png)
-
-2. After creating a prompt, you can select it from the list of prompts in the side panel.
-
-![Selecting a prompt](docs/screenshots/prompt-selection.png)
-
-3. When you are ready to ask your question, simply type it into the input field and press `Enter`.
-
-![Asking a question](docs/screenshots/prompt-asking.png)
-
-
-4. You can select the model globally using the selector in the left panel.  This setting will apply to all subsequent queries.
-
-![Selecting a model](docs/screenshots/model-selection.png)
-
-Ask the same question using another model:
-
-![Asking a question using another model](docs/screenshots/prompt-asking-another-model.png)
-
-5. Switch between light and dark mode by clicking on the sun/moon icon in the bottom left corner.
-
-![Switching between light and dark mode](docs/screenshots/theme-switching.png)
+![Demo](docs/demo.gif)
 
 ## Features
 
