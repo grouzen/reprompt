@@ -7,11 +7,11 @@ edition = "2024"
 arboard = "3.3.0"
 anyhow = "1.0.98"
 chrono = { version = "0.4", features = ["serde"] }
-eframe = { version = "0.31.1", features = ["default_fonts", "glow", "persistence", "wayland", "x11"], default-features = false }
-egui = "0.31.1"
-egui-modal = { git = "https://github.com/zeozeozeo/egui-modal.git", branch = "egui-0.31" }
-egui-theme-switch = "0.3.0"
-egui_commonmark = { version = "0.20.0", features = ["better_syntax_highlighting"] }
+eframe = { version = "0.32.3", features = ["default_fonts", "glow", "persistence", "wayland", "x11"], default-features = false }
+egui = "0.32.3"
+egui-modal = { git = "https://github.com/zeozeozeo/egui-modal.git", branch = "egui-0.32" }
+egui-theme-switch = "0.4.0"
+egui_commonmark = { version = "0.21.0", features = ["better_syntax_highlighting"] }
 env_logger = "0.11.8"
 flowync = { version = "5.1.0", features = ["compact"] }
 log = "0.4.27"
