@@ -155,7 +155,7 @@ impl Prompt {
                         Frame::group(ui.style())
                             .inner_margin(egui::Margin::same(10))
                             .corner_radius(CornerRadius::same(6))
-                            .stroke(Stroke::new(2.0, stroke_style_color))
+                            .stroke(Stroke::new(2.0_f32, stroke_style_color))
                             .fill(fill_style)
                             .show(ui, |ui| {
                                 ui.horizontal(|ui| {
@@ -295,7 +295,7 @@ impl Prompt {
                         Frame::group(ui.style())
                             .inner_margin(egui::Margin::same(10))
                             .corner_radius(CornerRadius::same(6))
-                            .stroke(Stroke::new(1.0, ui.style().visuals.window_stroke.color))
+                            .stroke(Stroke::new(1.0_f32, ui.style().visuals.window_stroke.color))
                             .show(ui, |ui| {
                                 ui.with_layout(
                                     Layout::top_down(egui::Align::TOP)
@@ -367,7 +367,7 @@ impl Prompt {
 
                                         Frame::group(ui.style())
                                             .stroke(Stroke::new(
-                                                1.0,
+                                                1.0_f32,
                                                 ui.style().visuals.window_stroke.color,
                                             ))
                                             .fill(ui.style().visuals.faint_bg_color)
